@@ -129,12 +129,7 @@ public class CounterBehavior extends TradeBehavior {
                 }else{  // 说明只有部分仓位可以被平
 
                     // 先对视图进行批处理
-                    double vol0, amount0, vol1, amount1;
-                    vol0 = summary.get(symbol).total_vol;
-                    amount0 = summary.get(symbol).total_vol * summary.get(symbol).ori_price;
-                    vol1 = vol0 + vol;
-                    amount1 = amount0 + vol * price;
-                    summary.get(symbol).ori_price = amount1 / vol1;
+                    summary.get(symbol).total_vol -= max_vol; // 因为均价不会变, 唯一变的是持仓量
                     // 再对持仓进行处理
                     for (int i=0; i<current_vol_list.size(); i++) {
                         Double posVol = current_vol_list.get(i);
