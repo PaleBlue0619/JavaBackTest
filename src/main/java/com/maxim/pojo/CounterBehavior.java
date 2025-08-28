@@ -634,37 +634,13 @@ public class CounterBehavior extends TradeBehavior {
             LocalDate end_date = info_dict.end_date;
             Double daily_max_price = info_dict.high;
             Double daily_min_price = info_dict.low;
+            Double open_price = kBar.open;
             Double high_price = kBar.high;
             Double low_price = kBar.low;
             Double close_price = kBar.close;
-            Double ori_price = summary.ori_price;
-            Double static_profit = summary.static_profit;
-            Double static_loss = summary.static_loss;
-            Double dynamic_profit = summary.dynamic_profit;
-            Double dynamic_loss = summary.dynamic_loss;
-            Double history_high = summary.history_max;
-            Double history_low = summary.history_min;
-            Double static_high = (static_profit != null) ? ori_price * (1 + static_profit) : null;
-            Double static_low = (static_loss != null) ? ori_price * (1 - static_loss) : null;
-            Double dynamic_high = (dynamic_profit != null) ? history_low * (1 + dynamic_profit) : null;
-            Double dynamic_low = (dynamic_loss != null) ? history_high * (1 - dynamic_loss) : null;
-
-            // 更新股票视图
-            summary.history_max = Math.max(summary.history_max, high_price);
-            summary.history_min = Math.min(summary.history_min, low_price);
-            config.stockSummary.put(symbol,summary);
-
             ArrayList<StockPosition> positionList = stockPos.get(symbol);
+            boolean close_permission = true; // 这个标的是否允许该仓位进行平仓, 综合time_permission+static_permission+dynamic_permission后得出
             int i = 0;
-            boolean static_permission = true;   // 这个标的是否允许静态平仓
-            boolean dynamic_permission = true;  // 这个标的是否允许动态平仓
-            /*
-            * 这一部分的逻辑是：
-            * 在一个FIFO的队列中，不允许出现后面的仓位触发而平仓的行为[因为平仓是FIFO,所以相当于平掉的是前面的仓位]
-            * //TODO: 这里严格限制止盈止损会对当前仓位的所有订单进行平仓,但仍然需要考虑部分成交撮合带来的潜在影响
-            * 所以,在设置单个仓位动态止盈止损的情况下,只能若当前仓位没有被平掉,那么后续仓位
-            * */
-
             while (i < positionList.size()){
                 // 若当前已经清空该股票的持仓, 进行保护
                 if (!config.stockPosition.containsKey(symbol)){
@@ -672,13 +648,26 @@ public class CounterBehavior extends TradeBehavior {
                     continue;
                 }
 
+                /*
+                 * 这一部分的逻辑是：
+                 * 在一个FIFO的队列中，不允许出现后面的仓位触发而平仓的行为[因为平仓是FIFO,所以相当于平掉的是前面的仓位]
+                 * //TODO: 仍然需要考虑部分成交撮合带来的潜在影响, 这是一个非常深刻的程序哲学问题
+                 * 所以,在设置单个仓位动态止盈止损的情况下,只能若当前仓位没有被平掉+三个触发条件都不满足,那么循环退出,后续仓位直接不判断
+                 * */
+                boolean time_permission;     // 这个标的是否允许触发最长持仓时间进行平仓
+                boolean static_permission;   // 这个标的是否允许触发静态止损规则平仓
+                boolean dynamic_permission;  // 这个标的是否允许触发动态止损规则平仓
+
                 // 这个标的的第i个仓位
-                Position position = positionList.get(i);
-                int time_monitor = position.getTime_monitor();
-                if (time_monitor < 0){
+                StockPosition position = positionList.get(i);
+                int time_monitor = position.time_monitor;
+                int static_monitor = position.static_monitor;
+                int dynamic_monitor = position.dynamic_monitor;
+                if (time_monitor < 0){  // -2: <最短持仓时间[exp.T+1制度]禁止平仓; -1: 属于最短持仓~最长持仓时间之间的仓位
                     i++;
                     continue;
                 }
+                i++;
 
                 // 获取持仓信息
                 Double vol = position.getVol();  // 这个仓位的持仓数量
@@ -689,7 +678,7 @@ public class CounterBehavior extends TradeBehavior {
 
                 // Step1. 给出时间维度基本判断(当天后续回测时间是否需要继续监视该订单)-持仓时间维度
                 if (time_monitor == 0){  // 如果还没判断过 (time_monitor = 0)
-                    // if (min_date.isEqual(date) || min_date.isAfter(date)){
+                    // if (min_date.isEqual(date) || min_date.isAfter(date)){  // TODO: 判断应该是哪一种写法更好
                     if (min_date.isAfter(date)){
                         // T+1 制度, 禁止当日平仓
                         time_monitor = -2;
@@ -701,36 +690,42 @@ public class CounterBehavior extends TradeBehavior {
                         time_monitor = 1;
                     }
                     // 更新time_monitor信息
-                    position.setTime_monitor(time_monitor);
+                    position.time_monitor = time_monitor;
                 }
-                i++;
 
+
+                // TODO: 后续这里全部改成orderCloseStock, 并需要让用户感知到这一行为
                 // Step2. 对限时单进行平仓[在JavaBackTest中, 时间维度优先级>价格维度]
-                if (time_monitor == 1){ // 已经退市的股票
+                if (time_monitor == 1){ // 已经退市的股票  // TODO: 考虑一下是否时间维度也要加close_permission
                     if (date.isEqual(end_date) || date.isAfter(end_date)){
                         CounterBehavior.closeStock(symbol, close_price, vol, "end_date");
                         continue;
                     }
                     if (timestamp.isAfter(max_timestamp)){ // 超过最长持仓时间
                         CounterBehavior.closeStock(symbol, close_price, vol, "max_timestamp");
+                        continue;
                     }
+                }else{
+                    time_permission = false; // 关闭时间逻辑判断的通道
                 }
 
                 // Step3. 给出静态价格维度基本判断(当天后续时间是否需要继续监视该订单)
-                int static_monitor;
-                if (static_high==null && static_low==null){
-                    static_monitor = -1;
-                }else if(static_high==null && daily_min_price<static_low){
-                    static_monitor = -1;
-                }else if(static_low==null && daily_max_price>static_high){
-                    static_monitor = -1;
-                }else{
-                    static_monitor = 1;
+                Double static_high = null, static_low = null;
+                if (close_permission && static_monitor == 0){
+                    static_high = (position.static_profit != null) ? (1 + position.static_profit) * open_price : null;
+                    static_low = (position.static_loss != null) ? (1 - position.static_loss) * open_price : null;
+                    if (static_high==null && static_low==null){
+                        static_monitor = -1;
+                    }else if(static_high==null && daily_min_price<static_low){
+                        static_monitor = -1;
+                    }else if(static_low==null && daily_max_price>static_high){
+                        static_monitor = -1;
+                    }else{
+                        static_monitor = 1;
+                    }
+                    // 更新
+                    position.static_monitor = static_monitor;
                 }
-                // TODO: 这是一个冗余的逻辑,需要删除
-                if (config.stockSummary.containsKey(symbol)){
-                    config.stockSummary.get(symbol).static_monitor = static_monitor;
-                } // 设置static_monitor: -1表示不监视/1表示监视, 该属性会在收盘后置0
 
                 // Step4. 对静态限价单进行平仓
                 if (static_monitor==1){
@@ -754,25 +749,28 @@ public class CounterBehavior extends TradeBehavior {
                         }
                     }
                 }
+                static_permission = false;
 
                 // Step5. 给出动态价格维度基本判断(当天后续时间是否需要继续监视该订单)
-                int dynamic_monitor;
-                if (dynamic_high==null && dynamic_low==null){
-                    dynamic_monitor = -1; // 不设动态止盈止损
-                }else if (dynamic_high==null && daily_min_price < dynamic_low){
-                    dynamic_monitor = -1; // 不设最大价格+当日最低价格<目标最低价(动态)
-                }else if (dynamic_low==null && daily_max_price > dynamic_high){
-                    dynamic_monitor = -1; // 不设最小价格+当日最高价格>目标最高价(动态)
-                }else{
-                    dynamic_monitor = 1;
+                Double dynamic_high = null, dynamic_low = null;
+                if (dynamic_monitor == 0){
+                    dynamic_high = (position.dynamic_profit != null) ? (1 + position.dynamic_profit) * position.history_min : null;
+                    dynamic_low = (position.dynamic_loss != null) ? (1 - position.dynamic_loss) * position.history_max : null;
+                    if (dynamic_high==null && dynamic_low==null){
+                        dynamic_monitor = -1; // 不设动态止盈止损
+                    }else if (dynamic_high==null && daily_min_price < dynamic_low){
+                        dynamic_monitor = -1; // 不设最大价格+当日最低价格<目标最低价(动态)
+                    }else if (dynamic_low==null && daily_max_price > dynamic_high){
+                        dynamic_monitor = -1; // 不设最小价格+当日最高价格>目标最高价(动态)
+                    }else{
+                        dynamic_monitor = 1;
+                    }
+                    // 动态价格维度更新
+                    position.dynamic_monitor = dynamic_monitor;
                 }
 
-                if (config.stockSummary.containsKey(symbol)){
-                    config.stockSummary.get(symbol).dynamic_monitor = dynamic_monitor;
-                } // 设置dynamic_monitor: -1表示不监视/1表示监视, 该属性会在收盘后置0
-
                 // Step6. 对动态限价单进行平仓
-                if (dynamic_monitor == 1){
+                if (close_permission && dynamic_monitor == 1){
                     if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
                         if (dynamic_high!=null && high_price >= dynamic_high){
                             CounterBehavior.closeStock(symbol, dynamic_high, summary.total_vol, "dynamic_high");
@@ -793,6 +791,19 @@ public class CounterBehavior extends TradeBehavior {
                         }
                     }
                 }
+                dynamic_permission = false; // 关闭动态价格逻辑判断平仓的通道
+
+//                /* 如果能够执行到这里, 说明time_permission & static_permission & dynamic_permission均为false
+//                * 也就是说,当前订单没平仓,后续订单是什么样子也不需要考虑了, 这里也是经典的Lazy Behavior, 在每个仓位迎来它自己的第一根K线到来的时候没有其进行属性判断, 而是等这个仓位到了能够被平仓的位置再进行判断
+//                * 但这样做是不对的, 因为time_monitor属性会在平仓的时候用到-> -2用于强制限制最小持仓时间, 所以依然需要对剩余的仓位进行属性判断, 所以放弃了这个更简洁的逻辑
+//                * */
+//                break;
+                close_permission = false;
+            }
+
+            // 赋值回BackTestConfig
+            if (!positionList.isEmpty()){
+                config.stockPosition.put(symbol, positionList);
             }
         }
     }
