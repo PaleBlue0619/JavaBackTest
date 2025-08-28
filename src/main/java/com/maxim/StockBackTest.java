@@ -5,6 +5,7 @@ import com.maxim.pojo.info.StockInfo;
 import com.maxim.pojo.kbar.StockBar;
 import com.maxim.pojo.position.Position;
 import com.maxim.pojo.TradeBehavior;
+import com.maxim.pojo.position.StockPosition;
 import com.maxim.service.Utils;
 import com.maxim.service.Utils.*;
 import com.maxim.pojo.*;
@@ -67,9 +68,9 @@ public class StockBackTest {
         // 当天回测结束
         // 查看股票持仓
         for (String symbol : config.getStockPosition().keySet()) {
-            Collection<Position> pos_list = config.getStockPosition().get(symbol);
+            Collection<StockPosition> pos_list = config.getStockPosition().get(symbol);
             if (pos_list.size() > 1) {
-                for (Position pos : pos_list) {
+                for (StockPosition pos : pos_list) {
                     System.out.println(symbol + ":" + pos.getVol());
                 }
             } else {

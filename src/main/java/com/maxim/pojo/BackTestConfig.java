@@ -2,11 +2,18 @@ package com.maxim.pojo;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.maxim.pojo.info.FutureInfo;
 import com.maxim.pojo.info.StockInfo;
+import com.maxim.pojo.kbar.FutureBar;
 import com.maxim.pojo.kbar.StockBar;
+import com.maxim.pojo.order.FutureOrder;
 import com.maxim.pojo.order.StockOrder;
+import com.maxim.pojo.position.FuturePosition;
 import com.maxim.pojo.position.Position;
+import com.maxim.pojo.position.StockPosition;
+import com.maxim.pojo.record.FutureRecord;
 import com.maxim.pojo.record.StockRecord;
+import com.maxim.pojo.summary.FutureSummary;
 import com.maxim.pojo.summary.StockSummary;
 import com.xxdb.DBConnection;
 
@@ -57,48 +64,77 @@ public class BackTestConfig {
     Boolean runStock; // 策略中是否包含股票
     Boolean runFuture; // 策略中是否包含期货
     Boolean runOption; // 策略中是否包含期权
-    String stockCounterJson;
 
-    // 股票类
+    // 股票类-基本信息
+    Collection<LocalDate> stockDateList = new ArrayList<>();  // 股票标的的回测时间(天)
+    Collection<LocalTime> stockTimeList = new ArrayList<>();   // 股票标的的回测时间(每天中的分钟)
     LinkedHashMap<Integer, HashMap<String, StockBar>> stockKDict = new LinkedHashMap<>(); // stock_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
     HashMap<String, StockInfo> stockInfoDict = new HashMap<>(); // stock_info_dict -> symbol -> OHLC+startDate/endDate Info
     LinkedHashMap stockSignalDict = new LinkedHashMap<>();
-    LinkedHashMap stockTimeStampDict = new LinkedHashMap<>();
-    Collection<LocalDate> stockDateList = new ArrayList<>();
     LinkedHashMap stockMacroDict = new LinkedHashMap<>();
     Collection<String> stockDotDateList = new ArrayList<>();
     Collection<String> stockStrDateList = new ArrayList<>();
     String stockKDataBase;
     String stockKTable;
-    String stockSignalDatabase;
-    String stockSignalTable;
+    String stockCounterJson;
     String stockMacroJson;
     String stockInfoJson;
     String stockSignalJson;
 
-    // 柜台模块
+    // 期货类-基本信息
+    Collection<LocalDate> futureDateList = new ArrayList<>();  // 股票标的的回测时间(天)
+    Collection<LocalTime> futureTimeList = new ArrayList<>();   // 股票标的的回测时间(每天中的分钟)
+    LinkedHashMap<Integer, HashMap<String, FutureBar>> futureKDict = new LinkedHashMap<>(); // future_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
+    HashMap<String, FutureInfo> futureInfoDict = new HashMap<>();
+    LinkedHashMap futureSignalDict = new LinkedHashMap<>();
+    LinkedHashMap futureMacroDict = new LinkedHashMap<>();
+    Collection<String> futureDotDateList = new ArrayList<>();
+    Collection<String> futureStrDateList = new ArrayList<>();
+    String futureKDataBase;
+    String futureKTable;
+    String futureMacroJson;
+    String futureInfoJson;
+    String futureSignalJson;
+
+    // 股票类-柜台模块 // 注: LinkedHashMap底层双向链表, 按照插入顺序进行排序, 符合回测业务逻辑
     LinkedHashMap<Integer, StockOrder> stockCounter = new LinkedHashMap<>();
     Collection<StockRecord> stockRecord = new ArrayList<>();
-//    Collection<String> stockRecord_state = new ArrayList<>(); // 股票成交记录
-//    Collection<String> stockRecord_reason = new ArrayList<>();
-//    Collection<LocalDate> stockRecord_date = new ArrayList<>();
-//    Collection<Integer> stockRecord_minute = new ArrayList<>();
-//    Collection<String> stockRecord_symbol = new ArrayList<>();
-//    Collection<Double> stockRecord_price = new ArrayList<>();
-//    Collection<Double> stockRecord_pnl = new ArrayList<>();
-    LinkedHashMap<String, ArrayList<Position>> stockPosition = new LinkedHashMap<>(); // 当前股票持仓情况
-    LinkedHashMap<String, StockSummary> stockSummary = new LinkedHashMap<>(); // 用于优化止盈止损
+    LinkedHashMap<String, ArrayList<StockPosition>> stockPosition = new LinkedHashMap<>(); // 当前股票持仓情况
+    HashMap<String, StockSummary> stockSummary = new LinkedHashMap<>(); // 用于优化止盈止损
+
+    // 期货类-柜台模块
+    LinkedHashMap<Integer, FutureOrder> futureCounter = new LinkedHashMap<>();
+    Collection<FutureRecord> futureRecord = new ArrayList<>();
+    LinkedHashMap<String, ArrayList<FuturePosition>> futureLongPosition = new LinkedHashMap<>(); // 当前期货多头持仓情况
+    LinkedHashMap<String, ArrayList<FuturePosition>> futureShortPosition = new LinkedHashMap<>(); // 当前期货空头持仓情况
+    HashMap<String, FutureSummary> futureLongSummary = new LinkedHashMap<>(); // 用于优化期货多头止盈止损
+    HashMap<String, FutureSummary> futureShortSummary = new LinkedHashMap<>(); // 用于优化期货空头止盈止损
 
     // 评价模块
-    Double cash;
-    Double oriCash;
-    Double profit = 0.0;
+    Double oriCash;      // 初始总资金
+    Double oriStockCash; // 初始股票资金
+    Double oriFutureCash; // 初始期货资金
+    Double oriOptionCash; // 初始期权资金
+    Double cash;         // 实时总资金
+    Double stockCash;   // 实时股票资金
+    Double futureCash;  // 实时期货资金
+    Double optionCash;  // 实时期权资金
+    Double profit = 0.0; // 平仓盈亏
+    Double realTimeProfit = 0.0;  // 实时盈亏
     Double profitSettle = 0.0;
+    Double stockProfit = 0.0;  // 平仓收益
+    Double stockRealTimeProfit = 0.0; // 实时收益
+    Double futureProfit = 0.0;
+    Double futureRealTimeProfit = 0.0;
+    Double optionProfit = 0.0;
+    Double optionRealTimeProfit = 0.0;
+
     LinkedHashMap<LocalDate, Double> cashDict = new LinkedHashMap<>();
     LinkedHashMap<LocalDate, Double> profitDict = new LinkedHashMap<>();
     LinkedHashMap<LocalDate, Double> settleProfitDict = new LinkedHashMap<>();
     LinkedHashMap<LocalDate, Double> posDict = new LinkedHashMap<>(); // 用于记录整体仓位水平
     Collection<Object> stockOrderRecord = new ArrayList<>();
+    Collection<Object> futureOrderRecord = new ArrayList<>();
 
     /**
      * 获取单例实例（懒加载）
@@ -166,13 +202,11 @@ public class BackTestConfig {
         this.runStock = config.getRun_stock() != null ? config.getRun_stock() : false;
         this.runFuture = config.getRun_future() != null ? config.getRun_future() : false;
         this.runOption = config.getRun_option() != null ? config.getRun_option() : false;
-        this.stockCounterJson = config.getStock_counter_json();
+        this.stockCounterJson = config.getStock_bar_json();
 
         // 初始化股票相关配置
-        this.stockKDataBase = config.getStock_K_database();
-        this.stockKTable = config.getStock_K_table();
-        this.stockSignalDatabase = config.getStock_signal_database();
-        this.stockSignalTable = config.getStock_signal_table();
+        this.stockKDataBase = config.getStock_bar_database();
+        this.stockKTable = config.getStock_bar_table();
         this.stockMacroJson = config.getStock_macro_json();
         this.stockInfoJson = config.getStock_info_json();
         this.stockSignalJson = config.getStock_signal_json();
@@ -434,11 +468,11 @@ public class BackTestConfig {
         this.stockCounterJson = stockCounterJson;
     }
 
-    public HashMap getStockKDict() {
+    public LinkedHashMap<Integer, HashMap<String, StockBar>> getStockKDict() {
         return stockKDict;
     }
 
-    public void setStockKDict(LinkedHashMap stockKDict) {
+    public void setStockKDict(LinkedHashMap<Integer, HashMap<String, StockBar>> stockKDict) {
         this.stockKDict = stockKDict;
     }
 
@@ -450,11 +484,11 @@ public class BackTestConfig {
         this.stockMacroDict = stockMacroDict;
     }
 
-    public HashMap getStockInfoDict() {
+    public HashMap<String, StockInfo> getStockInfoDict() {
         return stockInfoDict;
     }
 
-    public void setStockInfoDict(HashMap stockInfoDict) {
+    public void setStockInfoDict(HashMap<String, StockInfo> stockInfoDict) {
         this.stockInfoDict = stockInfoDict;
     }
 
@@ -466,12 +500,12 @@ public class BackTestConfig {
         this.stockSignalDict = stockSignalDict;
     }
 
-    public LinkedHashMap getStockTimeStampDict() {
-        return stockTimeStampDict;
+    public Collection<LocalTime> getStockTimeList() {
+        return stockTimeList;
     }
 
-    public void setStockTimeStampDict(LinkedHashMap stockTimeStampDict) {
-        this.stockTimeStampDict = stockTimeStampDict;
+    public void setStockTimeList(Collection<LocalTime> stockTimeList) {
+        this.stockTimeList = stockTimeList;
     }
 
     public Collection<LocalDate> getStockDateList() {
@@ -514,22 +548,6 @@ public class BackTestConfig {
         this.stockKTable = stockKTable;
     }
 
-    public String getStockSignalDatabase() {
-        return stockSignalDatabase;
-    }
-
-    public void setStockSignalDatabase(String stockSignalDatabase) {
-        this.stockSignalDatabase = stockSignalDatabase;
-    }
-
-    public String getStockSignalTable() {
-        return stockSignalTable;
-    }
-
-    public void setStockSignalTable(String stockSignalTable) {
-        this.stockSignalTable = stockSignalTable;
-    }
-
     public String getStockMacroJson() {
         return stockMacroJson;
     }
@@ -563,75 +581,19 @@ public class BackTestConfig {
         this.stockCounter = stockCounter;
     }
 
-//    public Collection<String> getStockRecord_state() {
-//        return stockRecord_state;
-//    }
-//
-//    public void setStockRecord_state(Collection<String> stockRecord_state) {
-//        this.stockRecord_state = stockRecord_state;
-//    }
-//
-//    public Collection<String> getStockRecord_reason() {
-//        return stockRecord_reason;
-//    }
-//
-//    public void setStockRecord_reason(Collection<String> stockRecord_reason) {
-//        this.stockRecord_reason = stockRecord_reason;
-//    }
-//
-//    public Collection<LocalDate> getStockRecord_date() {
-//        return stockRecord_date;
-//    }
-//
-//    public void setStockRecord_date(Collection<LocalDate> stockRecord_date) {
-//        this.stockRecord_date = stockRecord_date;
-//    }
-//
-//    public Collection<Integer> getStockRecord_minute() {
-//        return stockRecord_minute;
-//    }
-//
-//    public void setStockRecord_minute(Collection<Integer> stockRecord_minute) {
-//        this.stockRecord_minute = stockRecord_minute;
-//    }
-//
-//    public Collection<String> getStockRecord_symbol() {
-//        return stockRecord_symbol;
-//    }
-//
-//    public void setStockRecord_symbol(Collection<String> stockRecord_symbol) {
-//        this.stockRecord_symbol = stockRecord_symbol;
-//    }
-//
-//    public Collection<Double> getStockRecord_price() {
-//        return stockRecord_price;
-//    }
-//
-//    public void setStockRecord_price(Collection<Double> stockRecord_price) {
-//        this.stockRecord_price = stockRecord_price;
-//    }
-//
-//    public Collection<Double> getStockRecord_pnl() {
-//        return stockRecord_pnl;
-//    }
-//
-//    public void setStockRecord_pnl(Collection<Double> stockRecord_pnl) {
-//        this.stockRecord_pnl = stockRecord_pnl;
-//    }
-
-    public LinkedHashMap<String, ArrayList<Position>> getStockPosition() {
+    public LinkedHashMap<String, ArrayList<StockPosition>> getStockPosition() {
         return stockPosition;
     }
 
-    public void setStockPosition(LinkedHashMap<String, ArrayList<Position>> stockPosition) {
+    public void setStockPosition(LinkedHashMap<String, ArrayList<StockPosition>> stockPosition) {
         this.stockPosition = stockPosition;
     }
 
-    public LinkedHashMap getStockSummary() {
+    public HashMap<String, StockSummary> getStockSummary() {
         return stockSummary;
     }
 
-    public void setStockSummary(LinkedHashMap stockSummary) {
+    public void setStockSummary(HashMap<String, StockSummary> stockSummary) {
         this.stockSummary = stockSummary;
     }
 
@@ -705,5 +667,281 @@ public class BackTestConfig {
 
     public void setStockOrderRecord(Collection<Object> stockOrderRecord) {
         this.stockOrderRecord = stockOrderRecord;
+    }
+
+    public String getFutureKDataBase() {
+        return futureKDataBase;
+    }
+
+    public void setFutureKDataBase(String futureKDataBase) {
+        this.futureKDataBase = futureKDataBase;
+    }
+
+    public Collection<LocalDate> getFutureDateList() {
+        return futureDateList;
+    }
+
+    public void setFutureDateList(Collection<LocalDate> futureDateList) {
+        this.futureDateList = futureDateList;
+    }
+
+    public Collection<LocalTime> getFutureTimeList() {
+        return futureTimeList;
+    }
+
+    public void setFutureTimeList(Collection<LocalTime> futureTimeList) {
+        this.futureTimeList = futureTimeList;
+    }
+
+    public LinkedHashMap<Integer, HashMap<String, FutureBar>> getFutureKDict() {
+        return futureKDict;
+    }
+
+    public void setFutureKDict(LinkedHashMap<Integer, HashMap<String, FutureBar>> futureKDict) {
+        this.futureKDict = futureKDict;
+    }
+
+    public HashMap<String, FutureInfo> getFutureInfoDict() {
+        return futureInfoDict;
+    }
+
+    public void setFutureInfoDict(HashMap<String, FutureInfo> futureInfoDict) {
+        this.futureInfoDict = futureInfoDict;
+    }
+
+    public LinkedHashMap getFutureSignalDict() {
+        return futureSignalDict;
+    }
+
+    public void setFutureSignalDict(LinkedHashMap futureSignalDict) {
+        this.futureSignalDict = futureSignalDict;
+    }
+
+    public LinkedHashMap getFutureMacroDict() {
+        return futureMacroDict;
+    }
+
+    public void setFutureMacroDict(LinkedHashMap futureMacroDict) {
+        this.futureMacroDict = futureMacroDict;
+    }
+
+    public Collection<String> getFutureDotDateList() {
+        return futureDotDateList;
+    }
+
+    public void setFutureDotDateList(Collection<String> futureDotDateList) {
+        this.futureDotDateList = futureDotDateList;
+    }
+
+    public Collection<String> getFutureStrDateList() {
+        return futureStrDateList;
+    }
+
+    public void setFutureStrDateList(Collection<String> futureStrDateList) {
+        this.futureStrDateList = futureStrDateList;
+    }
+
+    public String getFutureKTable() {
+        return futureKTable;
+    }
+
+    public void setFutureKTable(String futureKTable) {
+        this.futureKTable = futureKTable;
+    }
+
+    public String getFutureMacroJson() {
+        return futureMacroJson;
+    }
+
+    public void setFutureMacroJson(String futureMacroJson) {
+        this.futureMacroJson = futureMacroJson;
+    }
+
+    public String getFutureInfoJson() {
+        return futureInfoJson;
+    }
+
+    public void setFutureInfoJson(String futureInfoJson) {
+        this.futureInfoJson = futureInfoJson;
+    }
+
+    public String getFutureSignalJson() {
+        return futureSignalJson;
+    }
+
+    public void setFutureSignalJson(String futureSignalJson) {
+        this.futureSignalJson = futureSignalJson;
+    }
+
+    public Collection<StockRecord> getStockRecord() {
+        return stockRecord;
+    }
+
+    public void setStockRecord(Collection<StockRecord> stockRecord) {
+        this.stockRecord = stockRecord;
+    }
+
+    public void setStockSummary(LinkedHashMap<String, StockSummary> stockSummary) {
+        this.stockSummary = stockSummary;
+    }
+
+    public LinkedHashMap<Integer, FutureOrder> getFutureCounter() {
+        return futureCounter;
+    }
+
+    public void setFutureCounter(LinkedHashMap<Integer, FutureOrder> futureCounter) {
+        this.futureCounter = futureCounter;
+    }
+
+    public Collection<FutureRecord> getFutureRecord() {
+        return futureRecord;
+    }
+
+    public void setFutureRecord(Collection<FutureRecord> futureRecord) {
+        this.futureRecord = futureRecord;
+    }
+
+    public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureLongPosition() {
+        return futureLongPosition;
+    }
+
+    public void setFutureLongPosition(LinkedHashMap<String, ArrayList<FuturePosition>> futureLongPosition) {
+        this.futureLongPosition = futureLongPosition;
+    }
+
+    public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureShortPosition() {
+        return futureShortPosition;
+    }
+
+    public void setFutureShortPosition(LinkedHashMap<String, ArrayList<FuturePosition>> futureShortPosition) {
+        this.futureShortPosition = futureShortPosition;
+    }
+
+    public HashMap<String, FutureSummary> getFutureLongSummary() {
+        return futureLongSummary;
+    }
+
+    public void setFutureLongSummary(LinkedHashMap<String, FutureSummary> futureLongSummary) {
+        this.futureLongSummary = futureLongSummary;
+    }
+
+    public HashMap<String, FutureSummary> getFutureShortSummary() {
+        return futureShortSummary;
+    }
+
+    public void setFutureShortSummary(LinkedHashMap<String, FutureSummary> futureShortSummary) {
+        this.futureShortSummary = futureShortSummary;
+    }
+
+    public Collection<Object> getFutureOrderRecord() {
+        return futureOrderRecord;
+    }
+
+    public void setFutureOrderRecord(Collection<Object> futureOrderRecord) {
+        this.futureOrderRecord = futureOrderRecord;
+    }
+
+    public Double getStockCash() {
+        return stockCash;
+    }
+
+    public void setStockCash(Double stockCash) {
+        this.stockCash = stockCash;
+    }
+
+    public void setFutureLongSummary(HashMap<String, FutureSummary> futureLongSummary) {
+        this.futureLongSummary = futureLongSummary;
+    }
+
+    public void setFutureShortSummary(HashMap<String, FutureSummary> futureShortSummary) {
+        this.futureShortSummary = futureShortSummary;
+    }
+
+    public Double getOriStockCash() {
+        return oriStockCash;
+    }
+
+    public void setOriStockCash(Double oriStockCash) {
+        this.oriStockCash = oriStockCash;
+    }
+
+    public Double getOriFutureCash() {
+        return oriFutureCash;
+    }
+
+    public void setOriFutureCash(Double oriFutureCash) {
+        this.oriFutureCash = oriFutureCash;
+    }
+
+    public Double getOriOptionCash() {
+        return oriOptionCash;
+    }
+
+    public void setOriOptionCash(Double oriOptionCash) {
+        this.oriOptionCash = oriOptionCash;
+    }
+
+    public Double getFutureCash() {
+        return futureCash;
+    }
+
+    public void setFutureCash(Double futureCash) {
+        this.futureCash = futureCash;
+    }
+
+    public Double getOptionCash() {
+        return optionCash;
+    }
+
+    public void setOptionCash(Double optionCash) {
+        this.optionCash = optionCash;
+    }
+
+    public Double getStockProfit() {
+        return stockProfit;
+    }
+
+    public void setStockProfit(Double stockProfit) {
+        this.stockProfit = stockProfit;
+    }
+
+    public Double getStockRealTimeProfit() {
+        return stockRealTimeProfit;
+    }
+
+    public void setStockRealTimeProfit(Double stockRealTimeProfit) {
+        this.stockRealTimeProfit = stockRealTimeProfit;
+    }
+
+    public Double getFutureProfit() {
+        return futureProfit;
+    }
+
+    public void setFutureProfit(Double futureProfit) {
+        this.futureProfit = futureProfit;
+    }
+
+    public Double getFutureRealTimeProfit() {
+        return futureRealTimeProfit;
+    }
+
+    public void setFutureRealTimeProfit(Double futureRealTimeProfit) {
+        this.futureRealTimeProfit = futureRealTimeProfit;
+    }
+
+    public Double getOptionProfit() {
+        return optionProfit;
+    }
+
+    public void setOptionProfit(Double optionProfit) {
+        this.optionProfit = optionProfit;
+    }
+
+    public Double getOptionRealTimeProfit() {
+        return optionRealTimeProfit;
+    }
+
+    public void setOptionRealTimeProfit(Double optionRealTimeProfit) {
+        this.optionRealTimeProfit = optionRealTimeProfit;
     }
 }

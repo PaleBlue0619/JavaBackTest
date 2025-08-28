@@ -8,26 +8,16 @@ public class Summary{
     public Double static_loss;
     public Double dynamic_profit;
     public Double dynamic_loss;
-    public Double history_min;
-    public Double history_max;
 
     // Constructor
     public Summary(Double ori_price, Double total_vol, Double static_profit, Double static_loss, Double dynamic_profit,
-                   Double dynamic_loss, Double history_min, Double history_max) {
+                   Double dynamic_loss) {
         this.static_profit = static_profit;
         this.ori_price = ori_price; // 初始价格 -> 后续会变成持仓买入均价
         this.total_vol = total_vol;
         this.static_loss = static_loss;
         this.dynamic_profit = dynamic_profit;
         this.dynamic_loss = dynamic_loss;
-        this.history_min = history_min;
-        this.history_max = history_max;
-    }
-
-    // Update 方法
-    public Summary update(Summary sum, Double price, Double vol, Double static_profit, Double static_loss, Double dynamic_profit, Double dynamic_loss) {
-        // 注: 这里的 price 和 vol 都是当前订单的价量
-        return null;
     }
 
     public Double getOri_price() {
@@ -78,19 +68,4 @@ public class Summary{
         this.dynamic_loss = dynamic_loss;
     }
 
-    public Double getHistory_min() {
-        return history_min;
-    }
-
-    public void setHistory_min(Double history_min) {
-        this.history_min = history_min;
-    }
-
-    public Double getHistory_max() {
-        return history_max;
-    }
-
-    public void setHistory_max(Double history_max) {
-        this.history_max = history_max;
-    }
 }

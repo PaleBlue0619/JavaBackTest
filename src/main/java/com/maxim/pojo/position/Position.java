@@ -6,14 +6,12 @@ public class Position {
     public Double price;
     public LocalDateTime min_timestamp;
     public LocalDateTime max_timestamp;
-    public Integer time_monitor;
 
-    public Position(Double price, Double vol, LocalDateTime min_timestamp, LocalDateTime max_timestamp, Integer time_monitor) {
+    public Position(Double price, Double vol, LocalDateTime min_timestamp, LocalDateTime max_timestamp) {
         this.price = price;
         this.vol = vol;
         this.min_timestamp = min_timestamp;
         this.max_timestamp = max_timestamp;
-        this.time_monitor = time_monitor;
     }
 
     public Double getVol() {
@@ -48,11 +46,4 @@ public class Position {
         this.max_timestamp = max_timestamp;
     }
 
-    public Integer getTime_monitor() {
-        return time_monitor;
-    }
-
-    public void setTime_monitor(Integer time_monitor) {
-        this.time_monitor = time_monitor;
-    }
 }
