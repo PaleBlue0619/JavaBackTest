@@ -54,10 +54,12 @@ public class BackTestConfig {
     LocalDateTime currentTimeStamp;
     String currentStrDate; // 20240101
     String currentDotDate; // 2024.01.01
+    LocalDate startDate;
+    LocalDate endDate;
+    String startStrDate;
+    String endStrDate;
     String startDotDate;
     String endDotDate;
-    LocalDateTime startDateTime; // 开始时间 LocalDateTime
-    LocalDateTime endDateTime;   // 结束时间 LocalDateTime
 
     // 1.柜台类
     Integer orderNum = 0; // 订单编号(全局唯一值)
@@ -219,13 +221,11 @@ public class BackTestConfig {
             this.currentStrDate = formatter.format(currentTimeStamp);
             this.currentDotDate = formatter_dot.format(currentTimeStamp);
             this.startDotDate = formatter_dot.format(startDate);
-            this.startDateTime = startDate.atStartOfDay(); // 设置开始时间
         }
 
         if (config.getEnd_date() != null) {
             LocalDate endDate = parseDateString(config.getEnd_date());
             this.endDotDate = formatter_dot.format(endDate);
-            this.endDateTime = endDate.atStartOfDay(); // 设置结束时间
         }
 
         // 设置初始现金
@@ -410,22 +410,6 @@ public class BackTestConfig {
 
     public void setEndDotDate(String endDotDate) {
         this.endDotDate = endDotDate;
-    }
-
-    public LocalDateTime getStartDateTime() {
-        return startDateTime;
-    }
-
-    public void setStartDateTime(LocalDateTime startDateTime) {
-        this.startDateTime = startDateTime;
-    }
-
-    public LocalDateTime getEndDateTime() {
-        return endDateTime;
-    }
-
-    public void setEndDateTime(LocalDateTime endDateTime) {
-        this.endDateTime = endDateTime;
     }
 
     public Integer getOrderNum() {

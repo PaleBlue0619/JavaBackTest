@@ -8,7 +8,7 @@ public class FutureSummary extends Summary{
     public Double realTimePrice; // 最新价格
     public Double realTimeProfit; // 最新浮盈浮亏
     public FutureSummary(Double ori_price, Double total_vol, Double static_profit, Double static_loss, Double dynamic_profit,
-                        Double dynamic_loss){
+                         Double dynamic_loss){
         super(ori_price, total_vol, static_profit, static_loss, dynamic_profit, dynamic_loss);
         this.dynamic_monitor = 0;
         this.static_monitor = 0;
@@ -36,16 +36,11 @@ public class FutureSummary extends Summary{
         this.ori_price = amount1 / vol1;  // 更新持仓均价
     }
 
-    public void closeLongUpdate(Double price, Double vol, Double static_profit, Double static_loss, Double dynamic_profit, Double dynamic_loss){
+    public void closeLongUpdate(Double price, Double vol){
         /*
         更新基本属性
         对于多头仓位视图, 以price卖出vol后, summary的变动
          */
-        this.static_profit = static_profit;
-        this.static_loss = static_loss;
-        this.dynamic_profit = dynamic_profit;
-        this.dynamic_loss = dynamic_loss;
-
         // 获取当前持仓的均价
         this.total_vol -= vol;
 
@@ -56,16 +51,11 @@ public class FutureSummary extends Summary{
         this.realTimeProfit -= profit;
     }
 
-    public void closeShortUpdate(Double price, Double vol, Double static_profit, Double static_loss, Double dynamic_profit, Double dynamic_loss){
+    public void closeShortUpdate(Double price, Double vol){
         /*
         更新基本属性
         对于空头仓位视图, 以price卖出vol后, summary的变动
          */
-        this.static_profit = static_profit;
-        this.static_loss = static_loss;
-        this.dynamic_profit = dynamic_profit;
-        this.dynamic_loss = dynamic_loss;
-
         // 获取当前持仓的均价
         this.total_vol -= vol;
 
@@ -81,9 +71,21 @@ public class FutureSummary extends Summary{
     }
 
     public void onBarShortUpdate(Double price){
-        // 每个K线到来的时候执行该方法, 获取最新利润
+        // 每个K线到来的时候执行该方法, 更新持仓的price & 最新利润
         this.realTimePrice = price;
         this.realTimeProfit = (this.ori_price - price) * this.total_vol * -1;  // 获取最新利润
+    }
+
+    public void afterDayLongUpdate(Double settle){
+        // 当日结算时执行该方法, 获取最新利润
+        this.realTimePrice = settle;
+        this.realTimeProfit = (this.ori_price - settle) * this.total_vol * 1;
+    }
+
+    public void afterDayShortUpdate(Double settle){
+        // 当日结算时执行该方法, 获取最新利润
+        this.realTimePrice = settle;
+        this.realTimeProfit = (settle - this.ori_price) * this.total_vol * -1;
     }
 
     public Integer getDynamic_monitor() {

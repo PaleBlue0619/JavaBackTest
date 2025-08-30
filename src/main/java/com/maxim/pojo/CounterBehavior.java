@@ -23,6 +23,12 @@ import java.util.*;
 import java.time.*;
 import java.util.concurrent.Future;
 
+/*
+ * Attention:
+ * 1. 编写回调函数的时候, 开仓的回调函数很特殊，必须检查这个标的是否存在(是否第一次调用这个回调函数), 不然就会出现第一次创建就执行回调函数的情况
+ * 2.
+ * */
+
 public class CounterBehavior extends TradeBehavior {
     public CounterBehavior(){
         super();
@@ -30,10 +36,10 @@ public class CounterBehavior extends TradeBehavior {
 
     public static void afterBarStock(){
         /*
-        * 1. 更新全局属性(仓位的动态盈亏(由于所有Position在创建的时候pre_price == price, 所以第一个K线的动态盈亏始终为0.0))
-        * 2. 更新股票视图(realTimePrice/realTimeProfit)
-        * 3. 更新股票仓位相关属性(history_min/history_max/profit/preprice)
-        * */
+         * 1. 更新全局属性(仓位的动态盈亏(由于所有Position在创建的时候pre_price == price, 所以第一个K线的动态盈亏始终为0.0))
+         * 2. 更新股票视图(realTimePrice/realTimeProfit)
+         * 3. 更新股票仓位相关属性(history_min/history_max/profit/pre_price)
+         * */
 
         // 获取BackTestConfig实例
         BackTestConfig config = BackTestConfig.getInstance();
@@ -45,10 +51,21 @@ public class CounterBehavior extends TradeBehavior {
         // 获取持仓 & 视图
         LinkedHashMap<String, ArrayList<StockPosition>> stockPosition = config.getStockPosition();
 
+        LocalDate end_date;
+        Double daily_high_price, daily_low_price;
         for (String symbol: stockPosition.keySet()){
+            if (config.stockInfoDict.containsKey(symbol)){
+                end_date = config.stockInfoDict.get(symbol).end_date;
+                daily_high_price = config.stockInfoDict.get(symbol).high;
+                daily_low_price = config.stockInfoDict.get(symbol).low;
+            }else{
+                end_date = config.endDate;
+                daily_high_price = null;
+                daily_low_price = null;
+            }
+
             if (stock_k_dict.containsKey(symbol)){
                 double close = stock_k_dict.get(symbol).close;  // 当前收盘价
-
                 // 1.更新视图
                 config.getStockSummary().get(symbol).onBarUpdate(close);
 
@@ -57,6 +74,11 @@ public class CounterBehavior extends TradeBehavior {
                 int k = positionList.size();
 
                 for (int i=1; i<k; i++){
+                    // 更新当前Monitor
+                    config.getStockPosition().get(symbol).get(i).onBarMonitorTime(config.currentDate, config.currentTimeStamp, end_date);
+                    config.getStockPosition().get(symbol).get(i).onBarMonitorStatic(daily_high_price, daily_low_price);
+                    config.getStockPosition().get(symbol).get(i).onBarMonitorDynamic(daily_high_price, daily_low_price);
+                    // 更新仓位基本属性
                     Double realTimeProfit = config.getStockPosition().get(symbol).get(i).onBarUpdate(close);
                     // 更新当前实时盈亏
                     config.realTimeProfit += realTimeProfit;
@@ -96,8 +118,21 @@ public class CounterBehavior extends TradeBehavior {
         LinkedHashMap<String, ArrayList<FuturePosition>> futureLongPosition = config.getFutureLongPosition();
         LinkedHashMap<String, ArrayList<FuturePosition>> futureShortPosition = config.getFutureShortPosition();
 
+
         // 分别处理
+        LocalDate end_date;
+        Double daily_high_price, daily_low_price;
         for (String symbol: futureLongPosition.keySet()){
+            if (config.futureInfoDict.containsKey(symbol)){
+                end_date = config.futureInfoDict.get(symbol).end_date;
+                daily_high_price = config.futureInfoDict.get(symbol).high;
+                daily_low_price = config.futureInfoDict.get(symbol).low;
+            }else{
+                end_date = config.endDate;
+                daily_high_price = null;
+                daily_low_price = null;
+            }
+
             if (future_k_dict.containsKey(symbol)){
                 double close = future_k_dict.get(symbol).close;
 
@@ -109,7 +144,12 @@ public class CounterBehavior extends TradeBehavior {
                 int k = positionList.size();
 
                 for (int i=1; i<k; i++){
-                    Double realTimeProfit = config.getFutureLongPosition().get(symbol).get(i).onBarLongUpdate(close);
+                    // 更新仓位当前Monitor
+                    config.futureLongPosition.get(symbol).get(i).onBarMonitorTime(config.currentDate, config.currentTimeStamp, end_date);
+                    config.futureLongPosition.get(symbol).get(i).onBarMonitorStatic(daily_high_price, daily_low_price);
+                    config.futureLongPosition.get(symbol).get(i).onBarMonitorLongDynamic(daily_high_price, daily_low_price);
+                    // 更新仓位基本属性
+                    Double realTimeProfit = config.futureLongPosition.get(symbol).get(i).onBarLongUpdate(close);
                     // 更新当前实时盈亏
                     config.realTimeProfit += realTimeProfit;
                     config.futureRealTimeProfit += realTimeProfit;
@@ -118,6 +158,15 @@ public class CounterBehavior extends TradeBehavior {
         }
 
         for (String symbol: futureShortPosition.keySet()){
+            if (config.futureInfoDict.containsKey(symbol)){
+                end_date = config.futureInfoDict.get(symbol).end_date;
+                daily_high_price = config.futureInfoDict.get(symbol).high;
+                daily_low_price = config.futureInfoDict.get(symbol).low;
+            }else{
+                end_date = config.endDate;
+                daily_high_price = null;
+                daily_low_price = null;
+            }
             if (future_k_dict.containsKey(symbol)){
                 double close = future_k_dict.get(symbol).close;
 
@@ -129,8 +178,58 @@ public class CounterBehavior extends TradeBehavior {
                 int k = positionList.size();
 
                 for (int i=1; i<k; i++){
-                    Double realTimeProfit = config.getFutureShortPosition().get(symbol).get(i).onBarShortUpdate(close);
+                    // 更新仓位当前Monitor
+                    config.futureShortPosition.get(symbol).get(i).onBarMonitorTime(config.currentDate, config.currentTimeStamp, end_date);
+                    config.futureShortPosition.get(symbol).get(i).onBarMonitorStatic(daily_high_price, daily_low_price);
+                    config.futureShortPosition.get(symbol).get(i).onBarMonitorShortDynamic(daily_high_price, daily_low_price);
+                    // 更新仓位基本属性
+                    Double realTimeProfit = config.futureShortPosition.get(symbol).get(i).onBarShortUpdate(close);
                     // 更新当前实时盈亏
+                    config.realTimeProfit += realTimeProfit;
+                    config.futureRealTimeProfit += realTimeProfit;
+                }
+            }
+        }
+    }
+
+    public static void afterDayFuture(){
+        /*
+        1. 重置仓位的monitor(time_monitor/static_monitor/dynamic_monitor)
+        2. pre_price -> 设置为settle
+        3. 计算margin & profit -> 更新仓位 & 持仓视图
+        */
+        BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig实例
+
+        // 多头仓位
+        Double realTimeProfit = 0.0;
+        for (String symbol: config.getFutureLongPosition().keySet()){
+            int k = config.getFutureLongPosition().get(symbol).size();
+            // 获取这个标的的settle
+            if (config.getFutureInfoDict().containsKey(symbol)) {
+                Double settle = config.getFutureInfoDict().get(symbol).settle;
+                // 更新视图属性
+                config.getFutureLongSummary().get(symbol).afterDayLongUpdate(settle);
+
+                // 更新持仓属性
+                for (int i=1; i<k; i++){
+                    realTimeProfit = config.getFutureLongPosition().get(symbol).get(i).afterDayLongUpdate(settle);
+                    config.realTimeProfit += realTimeProfit;
+                    config.futureRealTimeProfit += realTimeProfit;
+                }
+            }
+        }
+
+        // 空头仓位
+        for (String symbol: config.getFutureShortPosition().keySet()){
+            int k = config.getFutureShortPosition().get(symbol).size();
+            if (config.getFutureInfoDict().containsKey(symbol)) {
+                Double settle = config.getFutureInfoDict().get(symbol).settle;
+                // 更新视图属性
+                config.getFutureShortSummary().get(symbol).afterDayShortUpdate(settle);
+
+                // 更新持仓属性
+                for (int i=1; i<k; i++){
+                    realTimeProfit = config.getFutureShortPosition().get(symbol).get(i).afterDayShortUpdate(settle);
                     config.realTimeProfit += realTimeProfit;
                     config.futureRealTimeProfit += realTimeProfit;
                 }
@@ -199,9 +298,13 @@ public class CounterBehavior extends TradeBehavior {
 
         // 创建持仓对象
         // TODO: 在FutureInfo中添加一个Integer类型的属性, 用于表明保证金计算方式, 这里获取该属性从而去使用对应方式计算初始保证金
-        FuturePosition pos = new FuturePosition(price, vol, margin_rate, min_timestamp, max_timestamp); // 这里已经预先添加了hold_days=0, 相当于无论什么情况下, 只要下单, 那么一开始就没有走完一个day, hold_days=0
+        FuturePosition pos = new FuturePosition(price, vol, margin_rate, min_timestamp, max_timestamp, static_profit, static_loss, dynamic_profit, dynamic_loss);
 
         if (order_type.equals("long")){
+            // 设置该多头仓位的static_high & static_low, 后续monitor中不再更新
+            pos.static_high = (static_profit!=null)? price * (1 + static_profit) : null;
+            pos.static_low = (static_loss!=null)? price * (1 - static_loss) : null;
+
             // 将该仓位加入对应的持仓中
             if (!config.getFutureLongPosition().containsKey(symbol)){
                 // 说明当前没有该期货的持仓
@@ -221,6 +324,10 @@ public class CounterBehavior extends TradeBehavior {
                 config.futureLongSummary.get(symbol).openUpdate(price, vol, static_profit, static_loss, dynamic_profit, dynamic_loss);
             }
         }else{
+            // 设置该空头仓位的static_high & static_low, 后续monitor中不再更新
+            pos.static_high = (static_loss!=null)? price * (1 + static_loss) : null;
+            pos.static_low = (static_profit!=null)? price * (1 - static_profit) : null;
+
             // 将该仓位加入对应的持仓中
             if (!config.getFutureShortSummary().containsKey(symbol)){
                 FutureSummary summary = new FutureSummary(price, vol, static_profit, static_loss, dynamic_profit, dynamic_loss); // 这里history_min & history_max 都是当前价格
@@ -245,8 +352,6 @@ public class CounterBehavior extends TradeBehavior {
         BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig示例
 
         ArrayList<StockPosition> pos_list;
-        StockSummary summary;
-
         if (config.getStockPosition().isEmpty()) {
             return; // 说明当前没有股票持仓
         }
@@ -254,7 +359,6 @@ public class CounterBehavior extends TradeBehavior {
             System.out.printf("当前%s没有持仓%n", symbol);
             return;
         }
-        summary = config.stockSummary.get(symbol); // 获取当前标的持仓视图
 
         // 当前股票有持仓
         // 获取该股票的持仓的具体细节
@@ -307,7 +411,8 @@ public class CounterBehavior extends TradeBehavior {
         } else {  // 说明只有部分仓位可以被平
 
             // 先对视图进行批处理
-            summary.total_vol -= max_vol;
+            config.stockSummary.get(symbol).closeUpdate(price, max_vol);
+
             // 再对持仓进行处理
             for (int i = 0; i < current_vol_list.size(); i++) {
                 Double posVol = current_vol_list.get(i);
@@ -324,10 +429,7 @@ public class CounterBehavior extends TradeBehavior {
                     break;
                 }
             }
-
-            // 更新标的持仓 & 视图
             config.stockPosition.put(symbol, pos_list);
-            config.stockSummary.put(symbol, summary);
         }
         // 记录本次交易
         StockRecord R = new StockRecord("close", reason, config.currentDate, config.currentMinute, config.currentTimeStamp,
@@ -348,10 +450,8 @@ public class CounterBehavior extends TradeBehavior {
         int LS; // long:1, short:-1 -> 简化业务收益计算逻辑
         BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig示例
 
-        // 获取当前期货的仓位+持仓视图
+        // 获取当前期货的仓位
         ArrayList<FuturePosition> pos_list;
-//        LinkedHashMap<String, ArrayList<FuturePosition>> futurePos;
-        FutureSummary summary;
         if (order_type.equals("long")){
             if (config.getFutureLongPosition().isEmpty()){
                 return ;  // 说明当前没有期货多头持仓
@@ -362,7 +462,6 @@ public class CounterBehavior extends TradeBehavior {
             }
             LS = 1;
             pos_list = config.futureLongPosition.get(symbol);
-            summary = config.futureLongSummary.get(symbol);
         }
         else{
             if (config.getFutureShortPosition().isEmpty()){
@@ -374,7 +473,6 @@ public class CounterBehavior extends TradeBehavior {
             }
             LS = -1;
             pos_list = config.futureShortPosition.get(symbol);
-            summary = config.futureShortSummary.get(symbol);
         }
 
         // 获取当前期货持仓的具体细节
@@ -444,7 +542,12 @@ public class CounterBehavior extends TradeBehavior {
         }else{ // 说明只有部分仓位可以被平
 
             // 先对视图进行批处理
-            summary.total_vol -= max_vol;
+            if (order_type.equals("long")){
+                config.futureLongSummary.get(symbol).closeLongUpdate(price, max_vol);
+            }else{
+                config.futureShortSummary.get(symbol).closeShortUpdate(price, max_vol);
+            }
+
             // 再对持仓进行处理
             for (int i = 0; i < current_vol_list.size(); i++) {
                 Double position_vol = current_vol_list.get(i);
@@ -478,10 +581,8 @@ public class CounterBehavior extends TradeBehavior {
             // 更新标的持仓 & 视图
             if (order_type.equals("long")){
                 config.futureLongPosition.put(symbol, pos_list);
-                config.futureLongSummary.put(symbol, summary);
             }else{
                 config.futureShortPosition.put(symbol, pos_list);
-                config.futureShortSummary.put(symbol, summary);
             }
         }
         // 记录本次交易
@@ -630,7 +731,7 @@ public class CounterBehavior extends TradeBehavior {
             StockBar kBar = stock_k_dict.get(symbol); // 当前股票分钟Bar
             StockSummary summary = config.stockSummary.get(symbol); // 当前股票持仓视图
 
-            // Step0. 获取基本信息并更新股票视图
+            // Step0. 获取基本信息并更新股票持仓视图
             LocalDate end_date = info_dict.end_date;
             Double daily_max_price = info_dict.high;
             Double daily_min_price = info_dict.low;
@@ -645,7 +746,7 @@ public class CounterBehavior extends TradeBehavior {
                 // 若当前已经清空该股票的持仓, 进行保护
                 if (!config.stockPosition.containsKey(symbol)){
                     i++;
-                    continue;
+                    continue;  // TODO: 这里是break还是continue,给个说法?
                 }
 
                 /*
@@ -670,81 +771,50 @@ public class CounterBehavior extends TradeBehavior {
                 i++;
 
                 // 获取持仓信息
-                Double vol = position.getVol();  // 这个仓位的持仓数量
+                Double positionVol = position.getVol();  // 这个仓位的持仓数量
                 LocalDateTime min_timestamp = position.getMin_timestamp();
-                LocalDate min_date = min_timestamp.toLocalDate();
                 LocalDateTime max_timestamp = position.getMax_timestamp();
-                LocalDate max_date = max_timestamp.toLocalDate();
 
-                // Step1. 给出时间维度基本判断(当天后续回测时间是否需要继续监视该订单)-持仓时间维度
-                if (time_monitor == 0){  // 如果还没判断过 (time_monitor = 0)
-                    // if (min_date.isEqual(date) || min_date.isAfter(date)){  // TODO: 判断应该是哪一种写法更好
-                    if (min_date.isAfter(date)){
-                        // T+1 制度, 禁止当日平仓
-                        time_monitor = -2;
-                    } else if (end_date.isAfter(date) && min_date.isBefore(date) && date.isBefore(max_date)) {
-                        // 在最长持仓时间内 + 股票没有退市(end_date之前)
-                        time_monitor = -1;
-                    }else{
-                        // 可以正常平仓
-                        time_monitor = 1;
-                    }
-                    // 更新time_monitor信息
-                    position.time_monitor = time_monitor;
-                }
-
+                // Step1. 监控最短最长持仓时间
+                // 移到onBarMonitor里面了
 
                 // TODO: 后续这里全部改成orderCloseStock, 并需要让用户感知到这一行为
                 // Step2. 对限时单进行平仓[在JavaBackTest中, 时间维度优先级>价格维度]
                 if (time_monitor == 1){ // 已经退市的股票  // TODO: 考虑一下是否时间维度也要加close_permission
                     if (date.isEqual(end_date) || date.isAfter(end_date)){
-                        CounterBehavior.closeStock(symbol, close_price, vol, "end_date");
+                        CounterBehavior.closeStock(symbol, close_price, positionVol, "end_date");
                         continue;
                     }
                     if (timestamp.isAfter(max_timestamp)){ // 超过最长持仓时间
-                        CounterBehavior.closeStock(symbol, close_price, vol, "max_timestamp");
+                        CounterBehavior.closeStock(symbol, close_price, positionVol, "max_timestamp");
                         continue;
                     }
                 }else{
                     time_permission = false; // 关闭时间逻辑判断的通道
                 }
-
-                // Step3. 给出静态价格维度基本判断(当天后续时间是否需要继续监视该订单)
-                Double static_high = null, static_low = null;
-                if (close_permission && static_monitor == 0){
-                    static_high = (position.static_profit != null) ? (1 + position.static_profit) * open_price : null;
-                    static_low = (position.static_loss != null) ? (1 - position.static_loss) * open_price : null;
-                    if (static_high==null && static_low==null){
-                        static_monitor = -1;
-                    }else if(static_high==null && daily_min_price<static_low){
-                        static_monitor = -1;
-                    }else if(static_low==null && daily_max_price>static_high){
-                        static_monitor = -1;
-                    }else{
-                        static_monitor = 1;
-                    }
-                    // 更新
-                    position.static_monitor = static_monitor;
-                }
+                // Step3. 监控静态止盈止损
+                // 移到onBarMonitor里面了
 
                 // Step4. 对静态限价单进行平仓
+                Double static_high = position.static_high;
+                Double static_low = position.static_low;
                 if (static_monitor==1){
                     if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
                         if (static_high!=null && high_price >= static_high){
-                            CounterBehavior.closeStock(symbol, static_high, summary.total_vol, "static_high");
+                            CounterBehavior.closeStock(symbol, static_high, positionVol, "static_high");
                             continue;
                         }
                         if (static_low!=null && low_price <= static_low){
-                            CounterBehavior.closeStock(symbol, static_low, summary.total_vol, "static_low");
+                            CounterBehavior.closeStock(symbol, static_low, positionVol, "static_low");
                             continue;
                         }
                     }else{  // 假设最低价先到来, 先判断最低价条件
                         if (static_low!=null && low_price <= static_low){
-                            CounterBehavior.closeStock(symbol, static_low, summary.total_vol, "static_low");
+                            CounterBehavior.closeStock(symbol, static_low, positionVol, "static_low");
                             continue;
                         }
                         if (static_high!=null && high_price >= static_high){
-                            CounterBehavior.closeStock(symbol, static_high, summary.total_vol, "static_high");
+                            CounterBehavior.closeStock(symbol, static_high, positionVol, "static_high");
                             continue;
                         }
                     }
@@ -752,41 +822,27 @@ public class CounterBehavior extends TradeBehavior {
                 static_permission = false;
 
                 // Step5. 给出动态价格维度基本判断(当天后续时间是否需要继续监视该订单)
-                Double dynamic_high = null, dynamic_low = null;
-                if (dynamic_monitor == 0){
-                    dynamic_high = (position.dynamic_profit != null) ? (1 + position.dynamic_profit) * position.history_min : null;
-                    dynamic_low = (position.dynamic_loss != null) ? (1 - position.dynamic_loss) * position.history_max : null;
-                    if (dynamic_high==null && dynamic_low==null){
-                        dynamic_monitor = -1; // 不设动态止盈止损
-                    }else if (dynamic_high==null && daily_min_price < dynamic_low){
-                        dynamic_monitor = -1; // 不设最大价格+当日最低价格<目标最低价(动态)
-                    }else if (dynamic_low==null && daily_max_price > dynamic_high){
-                        dynamic_monitor = -1; // 不设最小价格+当日最高价格>目标最高价(动态)
-                    }else{
-                        dynamic_monitor = 1;
-                    }
-                    // 动态价格维度更新
-                    position.dynamic_monitor = dynamic_monitor;
-                }
+                Double dynamic_high = position.dynamic_high;
+                Double dynamic_low = position.dynamic_low;
 
                 // Step6. 对动态限价单进行平仓
                 if (close_permission && dynamic_monitor == 1){
                     if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
                         if (dynamic_high!=null && high_price >= dynamic_high){
-                            CounterBehavior.closeStock(symbol, dynamic_high, summary.total_vol, "dynamic_high");
+                            CounterBehavior.closeStock(symbol, dynamic_high, positionVol, "dynamic_high");
                             continue;
                         }
                         if (dynamic_low!=null && low_price <= dynamic_low){
-                            CounterBehavior.closeStock(symbol, dynamic_low, summary.total_vol, "dynamic_low");
+                            CounterBehavior.closeStock(symbol, dynamic_low, positionVol, "dynamic_low");
                             continue;
                         }
                     }else{ // 假设最低价先到来, 先判断最低价条件
                         if (dynamic_low!=null && low_price <= dynamic_low){
-                            CounterBehavior.closeStock(symbol, dynamic_low, summary.total_vol, "dynamic_low");
+                            CounterBehavior.closeStock(symbol, dynamic_low, positionVol, "dynamic_low");
                             continue;
                         }
                         if (dynamic_high!=null && high_price >= dynamic_high){
-                            CounterBehavior.closeStock(symbol, dynamic_high, summary.total_vol, "dynamic_high");
+                            CounterBehavior.closeStock(symbol, dynamic_high, positionVol, "dynamic_high");
                             continue;
                         }
                     }
@@ -804,6 +860,191 @@ public class CounterBehavior extends TradeBehavior {
             // 赋值回BackTestConfig
             if (!positionList.isEmpty()){
                 config.stockPosition.put(symbol, positionList);
+            }
+        }
+    }
+
+    // 这里因为代码实在太长了, 就加了一个参数表明判断的是多头仓位还是空头仓位
+    public static void monitorFuturePosition(String order_type, boolean order_sequence){
+        // 获取当前配置实例
+        BackTestConfig config = BackTestConfig.getInstance();
+
+        LinkedHashMap<String, ArrayList<FuturePosition>> futurePos;
+        if (order_type.equals("long")){
+            futurePos = config.getFutureLongPosition();
+            if (futurePos.isEmpty()){
+                return ; // 当前多头没有持仓
+            }
+        }else {
+            futurePos = config.getFutureShortPosition();
+            if (futurePos.isEmpty()){
+                return ; // 当前空头没有持仓
+            }
+        }
+
+        LocalDate date = config.currentDate;
+        Integer minute = config.currentMinute;
+        LocalDateTime timestamp = config.currentTimeStamp;
+        if (!config.futureKDict.containsKey(minute)){ // 说明这一分钟K线缺失
+            return ;
+        }
+        HashMap<String, FutureBar> future_k_dict = config.futureKDict.get(minute);
+        HashMap<String, FutureInfo> future_info_dict = config.futureInfoDict;
+
+        for (String symbol: futurePos.keySet()){
+            FutureInfo info_dict = future_info_dict.get(symbol);
+            FutureBar kBar = future_k_dict.get(symbol); // 当前期货分钟Bar
+            if (order_type.equals("long")){
+                FutureSummary summary = config.getFutureLongSummary().get(symbol); // 当前期货持仓视图
+            }else{
+                FutureSummary summary = config.getFutureShortSummary().get(symbol);
+            }
+
+            // Step0. 获取基本信息并更新期货持仓视图
+            LocalDate end_date = info_dict.end_date;
+            Double daily_max_price = info_dict.high;
+            Double daily_min_price = info_dict.low;
+            Double open_price = kBar.open;
+            Double high_price = kBar.high;
+            Double low_price = kBar.low;
+            Double close_price = kBar.close;
+            ArrayList<FuturePosition> positionList = futurePos.get(symbol);
+            boolean close_permission = true; // 这个标的是否允许该仓位被平仓, 综合time_permission & static_permission & dynamic_permission三个属性判断
+            int i = 0;
+            while (i < positionList.size()){
+                // 若当前已经该期货的持仓, 进行保护
+                if (order_type.equals("long")){
+                    if (!config.futureLongPosition.containsKey(symbol)) {
+                        // TODO: 这里是break还是continue,给个说法?
+                        i++;
+                        continue;
+                    }
+                }else{
+                    if (!config.futureShortPosition.containsKey(symbol)) {
+                        // TODO: 这里是break还是continue,给个说法?
+                        i++;
+                        continue;
+                    }
+                }
+
+                /*
+                 * 这一部分的逻辑是：
+                 * 在一个FIFO的队列中，不允许出现后面的仓位触发而平仓的行为[因为平仓是FIFO,所以相当于平掉的是前面的仓位]
+                 * //TODO: 仍然需要考虑部分成交撮合带来的潜在影响, 这是一个非常深刻的程序哲学问题
+                 * 所以,在设置单个仓位动态止盈止损的情况下,只能若当前仓位没有被平掉+三个触发条件都不满足,那么循环退出,后续仓位直接不判断
+                 * */
+                boolean time_permission;     // 这个标的是否允许触发最长持仓时间进行平仓
+                boolean static_permission;   // 这个标的是否允许触发静态止损规则平仓
+                boolean dynamic_permission;  // 这个标的是否允许触发动态止损规则平仓
+
+                // 这个标的的第i个仓位
+                FuturePosition position = positionList.get(i);
+                int time_monitor = position.time_monitor;
+                int static_monitor = position.static_monitor;
+                int dynamic_monitor = position.dynamic_monitor;
+                if (time_monitor < 0){  // -2: <最短持仓时间[exp.T+1制度]禁止平仓; -1: 属于最短持仓~最长持仓时间之间的仓位
+                    i++;
+                    continue;
+                }
+                i++;
+
+                // 获取持仓信息
+                Double positionVol = position.getVol();  // 这个仓位的持仓数量
+                LocalDateTime min_timestamp = position.getMin_timestamp();
+                LocalDate min_date = min_timestamp.toLocalDate();
+                LocalDateTime max_timestamp = position.getMax_timestamp();
+                LocalDate max_date = max_timestamp.toLocalDate();
+
+                // Step1. 给出时间维度基本判断(当天后续回测时间是否需要继续监视该订单)-持仓时间维度
+                // 这个移到onBarMonitor里面了
+
+                // TODO: 后续这里全部改成orderCloseFuture, 并需要让用户感知到这一行为
+                // Step2. 对限时单进行平仓[在JavaBackTest中, 时间维度优先级>价格维度]
+                if (time_monitor == 1){ // 需要强制平仓的期货  // TODO: 考虑一下是否时间维度也要加close_permission
+                    if (date.isEqual(end_date) || date.isAfter(end_date)){
+                        CounterBehavior.closeFuture(order_type, symbol, close_price, positionVol, "end_date");
+                        continue;
+                    }
+                    if (timestamp.isAfter(max_timestamp)){ // 超过最长持仓时间
+                        CounterBehavior.closeFuture(order_type, symbol, close_price, positionVol, "max_timestamp");
+                        continue;
+                    }
+                }else{
+                    time_permission = false; // 关闭时间逻辑判断的通道
+                }
+
+                // Step3. 给出静态价格维度基本判断(当天后续时间是否需要继续监视该订单)
+                // 移到onBarMonitor里面了
+
+                // Step4. 对静态限价单进行平仓
+                Double static_high = position.static_high;
+                Double static_low = position.static_low;
+                if (static_monitor==1){  // 说明允许平仓
+                    if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
+                        if (static_high!=null && high_price >= static_high){
+                            CounterBehavior.closeStock(symbol, static_high, positionVol, "static_high");
+                            continue;
+                        }
+                        if (static_low!=null && low_price <= static_low){
+                            CounterBehavior.closeStock(symbol, static_low, positionVol, "static_low");
+                            continue;
+                        }
+                    }else{  // 假设最低价先到来, 先判断最低价条件
+                        if (static_low!=null && low_price <= static_low){
+                            CounterBehavior.closeStock(symbol, static_low, positionVol, "static_low");
+                            continue;
+                        }
+                        if (static_high!=null && high_price >= static_high){
+                            CounterBehavior.closeStock(symbol, static_high, positionVol, "static_high");
+                            continue;
+                        }
+                    }
+                }
+                static_permission = false;
+
+                // Step5. 给出动态价格维度基本判断(当天后续时间是否需要继续监视该订单)
+                Double dynamic_high = position.dynamic_high;
+                Double dynamic_low = position.dynamic_low;
+
+                // Step6. 对动态限价单进行平仓
+                if (close_permission && dynamic_monitor == 1){ // 说明允许平仓
+                    if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
+                        if (dynamic_high!=null && high_price >= dynamic_high){
+                            CounterBehavior.closeStock(symbol, dynamic_high, positionVol, "dynamic_high");
+                            continue;
+                        }
+                        if (dynamic_low!=null && low_price <= dynamic_low){
+                            CounterBehavior.closeStock(symbol, dynamic_low, positionVol, "dynamic_low");
+                            continue;
+                        }
+                    }else{ // 假设最低价先到来, 先判断最低价条件
+                        if (dynamic_low!=null && low_price <= dynamic_low){
+                            CounterBehavior.closeStock(symbol, dynamic_low, positionVol, "dynamic_low");
+                            continue;
+                        }
+                        if (dynamic_high!=null && high_price >= dynamic_high){
+                            CounterBehavior.closeStock(symbol, dynamic_high, positionVol, "dynamic_high");
+                            continue;
+                        }
+                    }
+                }
+                dynamic_permission = false; // 关闭动态价格逻辑判断平仓的通道
+
+//                /* 如果能够执行到这里, 说明time_permission & static_permission & dynamic_permission均为false
+//                * 也就是说,当前订单没平仓,后续订单是什么样子也不需要考虑了, 这里也是经典的Lazy Behavior, 在每个仓位迎来它自己的第一根K线到来的时候没有其进行属性判断, 而是等这个仓位到了能够被平仓的位置再进行判断
+//                * 但这样做是不对的, 因为time_monitor属性会在平仓的时候用到-> -2用于强制限制最小持仓时间, 所以依然需要对剩余的仓位进行属性判断, 所以放弃了这个更简洁的逻辑
+//                * */
+//                break;
+                close_permission = false;
+            }
+
+            // 赋值回BackTestConfig
+            if (!positionList.isEmpty()){
+                if (order_type.equals("long")){
+                    config.futureLongPosition.put(symbol, positionList);
+                }else{
+                    config.futureShortPosition.put(symbol, positionList);
+                }
             }
         }
     }

@@ -42,17 +42,12 @@ public class StockSummary extends Summary{
 
 
     // 部分平仓时回调函数 [因为全部平仓会直接删除这个仓位]
-    public void closeUpdate(Double price, Double vol, Double static_profit, Double static_loss, Double dynamic_profit, Double dynamic_loss){
+    public void closeUpdate(Double price, Double vol){
         /*
         更新基本属性
         以price卖出vol后, summary的变动
          */
-        this.static_profit = static_profit;
-        this.static_loss = static_loss;
-        this.dynamic_profit = dynamic_profit;
-        this.dynamic_loss = dynamic_loss;
-
-        // 获取当前持仓的均价
+        // 因为卖出后, 均价是不会发生变化的, 所以只需要更新vol的属性即可
         this.total_vol -= vol;
 
         // 计算盈亏
