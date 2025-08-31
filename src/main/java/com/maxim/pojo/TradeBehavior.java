@@ -50,16 +50,16 @@ public class TradeBehavior {
 
         // 设置默认时间戳值
         if (min_timestamp == null){
-            min_timestamp = config.startDateTime;
+            min_timestamp = config.startTimeStamp;
         }
         if (max_timestamp == null){
-            max_timestamp = config.endDateTime;
+            max_timestamp = config.endTimeStamp;
         }
         if (min_order_timestamp == null){
-            min_order_timestamp = config.startDateTime;
+            min_order_timestamp = config.startTimeStamp;
         }
         if (max_order_timestamp == null){
-            max_order_timestamp = config.endDateTime;
+            max_order_timestamp = config.endTimeStamp;
         }
 
         // 增加订单编号
@@ -104,10 +104,10 @@ public class TradeBehavior {
         BackTestConfig config = BackTestConfig.getInstance();
 
         if (min_order_timestamp == null){
-            min_order_timestamp = BackTestConfig.getInstance().startDateTime;
+            min_order_timestamp = BackTestConfig.getInstance().startTimeStamp;
         }
         if (max_order_timestamp == null){
-            max_order_timestamp = BackTestConfig.getInstance().endDateTime;
+            max_order_timestamp = BackTestConfig.getInstance().endTimeStamp;
         }
         // 增加订单编号
         int orderNum;
@@ -165,16 +165,16 @@ public class TradeBehavior {
 
         // 设置默认时间戳值
         if (min_timestamp == null){
-            min_timestamp = config.startDateTime;
+            min_timestamp = config.startTimeStamp;
         }
         if (max_timestamp == null){
-            max_timestamp = config.endDateTime;
+            max_timestamp = config.endTimeStamp;
         }
         if (min_order_timestamp == null){
-            min_order_timestamp = config.startDateTime;
+            min_order_timestamp = config.startTimeStamp;
         }
         if (max_order_timestamp == null){
-            max_order_timestamp = config.endDateTime;
+            max_order_timestamp = config.endTimeStamp;
         }
 
         // 增加订单编号
@@ -220,10 +220,10 @@ public class TradeBehavior {
         BackTestConfig config = BackTestConfig.getInstance();
 
         if (min_order_timestamp == null){
-            min_order_timestamp = BackTestConfig.getInstance().startDateTime;
+            min_order_timestamp = BackTestConfig.getInstance().startTimeStamp;
         }
         if (max_order_timestamp == null){
-            max_order_timestamp = BackTestConfig.getInstance().endDateTime;
+            max_order_timestamp = BackTestConfig.getInstance().endTimeStamp;
         }
         // 增加订单编号
         int orderNum;

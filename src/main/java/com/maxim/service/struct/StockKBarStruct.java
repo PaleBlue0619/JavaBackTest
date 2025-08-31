@@ -1,15 +1,19 @@
-package com.maxim.service;
+package com.maxim.service.struct;
 
 
 public class StockKBarStruct {
-    protected String symbolCol;
-    protected String dateCol;
-    protected String timeCol; // LocalDateTime Format(DolphinDB Timestamp)
-    protected String openCol;
-    protected String highCol;
-    protected String lowCol;
-    protected String closeCol;
-    protected String volumeCol;
+    public String symbolCol;
+    public String dateCol;
+    public String timeCol; // LocalDateTime Format(DolphinDB Timestamp)
+    public String openCol;
+    public String highCol;
+    public String lowCol;
+    public String closeCol;
+    public String volumeCol;
+
+    public StockKBarStruct() {
+        // 可以为空或设置默认值
+    }
 
     // 构造方式一: date + time
     public StockKBarStruct(String symbolCol, String dateCol, String timeCol, String openCol, String highCol, String lowCol, String closeCol, String volumeCol) {

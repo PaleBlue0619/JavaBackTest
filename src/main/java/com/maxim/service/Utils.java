@@ -2,6 +2,8 @@ package com.maxim.service;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.stream.Collectors;
 
 public class Utils{
@@ -23,18 +25,37 @@ public class Utils{
         }
         return false;
     }
-    public static String arrayToDolphinDBString(ArrayList<String> array) {
+    public static String arrayToDolphinDBString(Collection<String> array) {
         /*
         输入：String[] arr = {"c1","c2"}
         输出：["c1","c2"]
         */
         String[] arr = new String[array.size()];
-        for (int i=0; i<array.size(); i++){
-            arr[i] = array.get(i);
+        Iterator<String> iter = array.iterator();
+        int i = 0;
+        while (iter.hasNext()){
+            arr[i] = (String) iter.next();
+            i++;
         }
         return "[" + Arrays.stream(arr)
                 .map(s -> "'" + s + "'")
                 .collect(Collectors.joining(", ")) + "]";
+    }
+
+    public static String arrayToDolphinDBStrSplit(Collection<String> array){
+        /*
+        * input: String[] arr = {"c1","c2"}
+        * output: "c1,c2"
+        * */
+        String[] arr = new String[array.size()];
+        Iterator<String> iter = array.iterator();
+        int i = 0;
+        while (iter.hasNext()){
+            arr[i] = (String) iter.next();
+            i++;
+        }
+        return Arrays.stream(arr)
+                .collect(Collectors.joining(","));
     }
 
     public static ArrayList<Integer> getMinuteList(String marketType) {

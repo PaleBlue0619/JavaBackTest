@@ -25,7 +25,7 @@ import static com.maxim.service.DataLoader.getStockKDataFromJson;
 public class StockBackTest {
     public static void main(String[] args) throws Exception{
         // 读取JSON文件内容
-        String configPath = "D:\\Maxim\\BackTest\\JavaBackTest\\src\\main\\java\\com\\maxim\\backtest_config.json";
+        String configPath = "D:\\BackTest\\JavaBackTest\\src\\main\\java\\com\\maxim\\backtest_config.json";
         String jsonContent = new String(Files.readAllBytes(Paths.get(configPath)));
         // Java单例设计模式, 获取全局配置项, 回测逻辑会实时修改里面的属性
         BackTestConfig config = BackTestConfig.getInstance(jsonContent);

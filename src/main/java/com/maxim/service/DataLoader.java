@@ -1,6 +1,8 @@
 package com.maxim.service;
 import com.maxim.pojo.info.StockInfo;
 import com.maxim.pojo.kbar.StockBar; // 反序列化为StockBar对象
+import com.maxim.service.struct.StockKBarStruct;
+import com.maxim.service.struct.StockInfoStruct;
 import com.xxdb.DBConnection;
 import com.xxdb.data.*;
 
@@ -16,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.io.File;
 import java.io.FileWriter;
+import redis.clients.jedis.Jedis;
 import com.alibaba.fastjson2.JSONObject;
 
 public class DataLoader {
@@ -35,6 +38,7 @@ public class DataLoader {
         */
         // 多线程从DolphinDB数据库中取数，返回BasicTable
         // 转换字符串为DolphinDB List str
+
         String symbol_list_str = Utils.arrayToDolphinDBString(symbol_list);
         System.out.println("symbolList: " + symbol_list_str);
 
@@ -128,7 +132,7 @@ public class DataLoader {
     }
 
     public static ConcurrentHashMap<LocalDate, BasicTable> getStockKBar(DBConnection conn, String DBName, String TBName, String savePath, String freqType,
-                                                      String start_date, String end_date, StockKBarStruct struct, ArrayList<String> symbol_list) throws IOException {
+                                                                        String start_date, String end_date, StockKBarStruct struct, ArrayList<String> symbol_list) throws IOException {
         /*
         TBName: 日频/分钟频KBar表
         start_date：like 2020.01.01
@@ -380,7 +384,7 @@ public class DataLoader {
 
                     for (String minuteStr : jsonData.keySet()){
                         JSONObject barData = jsonData.getJSONObject(minuteStr);  // 反序列化为JSONObject
-                        LocalDateTime tradeTime = LocalDateTime.parse(barData.getString("timestamp"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                        LocalTime tradeTime = LocalTime.parse(barData.getString("timestamp"), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
                         Double open = barData.getDoubleValue("open");
                         Double high = barData.getDoubleValue("high");
                         Double low = barData.getDoubleValue("low");

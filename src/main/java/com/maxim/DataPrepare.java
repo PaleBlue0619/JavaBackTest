@@ -1,8 +1,9 @@
 package com.maxim;
-import com.maxim.service.StockInfoStruct;
+// 数据结构模块
+import com.maxim.service.struct.StockInfoStruct;
+import com.maxim.service.struct.StockKBarStruct;
 import com.maxim.service.Utils; // 工具模块
 import com.maxim.service.DataLoader; // 数据导入模块
-import com.maxim.service.StockKBarStruct;
 import com.xxdb.DBConnection;
 import com.xxdb.data.BasicTable;
 
@@ -17,15 +18,11 @@ public class DataPrepare {
     private static final String TBName = "StockDailyKBar";
     private static final String HOST =  "172.16.0.184";
     private static final int PORT = 8001;
-    private static final String USERNAME = "admin";
-    private static final String PASSWORD = "123456";
+    private static final String USERNAME = "maxim";
+    private static final String PASSWORD = "dyJmoc-tiznem-1figgu";
     public static void main(String[] args) throws IOException {
         // 创建DolphinDB连接对象 + 数据库连接池
         DBConnection conn = new DBConnection();
-        String HOST = "183.134.101.138";
-        int PORT = 8860;
-        String USERNAME = "admin";
-        String PASSWORD = "123456";
         conn.connect(HOST, PORT);
         conn.login(USERNAME, PASSWORD, true);
         String DBName = "dfs://MinuteKDB";
@@ -53,14 +50,10 @@ public class DataPrepare {
 
         // 创建DolphinDB连接对象 + 数据库连接池
         DBConnection conn1 = new DBConnection();
-        String HOST1 = "192.168.100.43";
-        int PORT1 = 8700;
-        String USERNAME1 = "admin";
-        String PASSWORD1 = "123456";
         String DBName1 = "dfs://stockDayKDetail";
         String TBName1 = "stockDayK";
-        conn1.connect(HOST1, PORT1);
-        conn1.login(USERNAME1, PASSWORD1, true);
+        conn1.connect(HOST, PORT);
+        conn1.login(USERNAME, PASSWORD, true);
 
         // 多线程获取Info数据
         Utils.deleteFileDir(infoSavePath); // 先删除上一次生成的全部文件

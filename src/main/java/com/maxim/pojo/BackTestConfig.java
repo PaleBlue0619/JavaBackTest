@@ -56,6 +56,8 @@ public class BackTestConfig {
     String currentDotDate; // 2024.01.01
     LocalDate startDate;
     LocalDate endDate;
+    LocalDateTime startTimeStamp;
+    LocalDateTime endTimeStamp;
     String startStrDate;
     String endStrDate;
     String startDotDate;
@@ -221,11 +223,13 @@ public class BackTestConfig {
             this.currentStrDate = formatter.format(currentTimeStamp);
             this.currentDotDate = formatter_dot.format(currentTimeStamp);
             this.startDotDate = formatter_dot.format(startDate);
+            this.startTimeStamp = LocalDateTime.of(startDate, LocalTime.of(0, 0));
         }
 
         if (config.getEnd_date() != null) {
             LocalDate endDate = parseDateString(config.getEnd_date());
             this.endDotDate = formatter_dot.format(endDate);
+            this.endTimeStamp = LocalDateTime.of(endDate, LocalTime.of(23, 59, 59));
         }
 
         // 设置初始现金

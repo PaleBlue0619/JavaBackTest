@@ -1,12 +1,12 @@
-package com.maxim.service;
+package com.maxim.service.struct;
 
 public class StockInfoStruct{
-    protected String symbolCol;
-    protected String dateCol;
-    protected String openCol;
-    protected String highCol;
-    protected String lowCol;
-    protected String closeCol;
+    public String symbolCol;
+    public String dateCol;
+    public String openCol;
+    public String highCol;
+    public String lowCol;
+    public String closeCol;
 
     // 构造方式一: date + time
     public StockInfoStruct(String symbolCol, String dateCol, String openCol, String highCol, String lowCol, String closeCol) {
