@@ -97,10 +97,10 @@ public class fromRedis{
                 (e1, e2) -> e1,
                 LinkedHashMap::new
             ));
-}
-
+    }
 
     public <T> Collection<T> multiMode(Jedis jedis, LocalDate date, String redisKey, Class<T> clazz) {
         // 给定一个clazz, 从Redis中读取redisKey键对应HashSet中对应date的该clazz对象, 返回一个Collection<JavaBean>
+
     }
 }

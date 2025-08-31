@@ -27,6 +27,24 @@ public class toRedis{
      注: 统一使用LocalDate.toString()作为键, 即"2020-01-01"
      */
 
+    public <T> void singleModeObject(Jedis jedis, ConcurrentHashMap<LocalDate, Class<T>> resultMap, Boolean dropKey){
+        // 单类别对象存储至Redis, 键的名称为LocalDate, 值为JavaBean
+        // 删除对应的键
+        if (dropKey){
+            for (LocalDate tradeDate: resultMap.keySet()){
+                if (jedis.exists(tradeDate.toString())){
+                    jedis.del(tradeDate.toString());
+                }
+            }
+        }
+
+        for (LocalDate tradeDate: resultMap.keySet()){
+            // 利用FastJson2将对象序列化为字符串格式
+            String strJson = JSONObject.toJSONString(resultMap.get(tradeDate));
+            jedis.set(tradeDate.toString(), strJson);
+        }
+    }
+
     public void singleMode(Jedis jedis, ConcurrentHashMap<LocalDate, Collection<Class<?>>> resultMap, Boolean dropKey){
         // 单类别对象存储至Redis, 键的名称为LocalDate, 值为Collection<JavaBean>
         // 删除对应的键
@@ -63,6 +81,19 @@ public class toRedis{
             }
         }
 
+    }
+
+    public <T> void multiModeObject(Jedis jedis, ConcurrentHashMap<LocalDate, Class<T>> resultMap, String redisKey, Boolean dropKey){
+        // 多类别对象存储至Redis, 键的名称为redisKey, field为LocalDate, 值为JavaBean
+        if (dropKey && jedis.exists(redisKey)){
+            // 说明需要提前删除Redis中的键
+            jedis.del(redisKey);
+        }
+
+        for (LocalDate tradeDate: resultMap.keySet()){
+            String strJson = JSONObject.toJSONString(resultMap.get(tradeDate));
+            jedis.hset(redisKey, tradeDate.toString(), strJson);
+        }
     }
 
     public void multiMode(Jedis jedis, ConcurrentHashMap<LocalDate, Collection<Class<?>>> resultMap, String redisKey, Boolean dropKey){
