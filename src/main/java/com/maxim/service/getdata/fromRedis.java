@@ -99,8 +99,23 @@ public class fromRedis{
             ));
     }
 
+    public <T> T multiMode(Jedis jedis, LocalDate date, String redisKey, T clazz){
+        // 给定一个clazz, 从Redis中读取redisKey键对应HashSet中对应date的该clazz对象, 输出至内存
+        String strJson = jedis.hget(redisKey, date.toString());
+        if (strJson == null) {
+            System.out.println("Redis中未找到该LocalDate:" + date + "的数据");
+            return null;
+        }
+        return JSON.parseObject(strJson, (Type) clazz);
+    }
+
     public <T> Collection<T> multiMode(Jedis jedis, LocalDate date, String redisKey, Class<T> clazz) {
         // 给定一个clazz, 从Redis中读取redisKey键对应HashSet中对应date的该clazz对象, 返回一个Collection<JavaBean>
-
+        String strJson = jedis.hget(redisKey, date.toString());
+        if (strJson == null) {
+            System.out.println("Redis中未找到该LocalDate:" + date + "的数据");
+            return Collections.emptyList(); // 返回空集合
+        }
+        return JSON.parseArray(strJson, clazz);
     }
 }

@@ -27,6 +27,8 @@ public class toRedis{
      注: 统一使用LocalDate.toString()作为键, 即"2020-01-01"
      */
 
+
+    // LocalDate: ClazzObj
     public <T> void singleModeObject(Jedis jedis, ConcurrentHashMap<LocalDate, Class<T>> resultMap, Boolean dropKey){
         // 单类别对象存储至Redis, 键的名称为LocalDate, 值为JavaBean
         // 删除对应的键
@@ -45,6 +47,7 @@ public class toRedis{
         }
     }
 
+    // LocalDate: Collection<ClazzObj>
     public void singleMode(Jedis jedis, ConcurrentHashMap<LocalDate, Collection<Class<?>>> resultMap, Boolean dropKey){
         // 单类别对象存储至Redis, 键的名称为LocalDate, 值为Collection<JavaBean>
         // 删除对应的键

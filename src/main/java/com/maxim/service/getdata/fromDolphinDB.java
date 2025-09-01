@@ -12,6 +12,7 @@ import com.maxim.service.struct.StockInfoStruct;
 import java.io.IOException;
 import java.lang.Void;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 import java.io.File;
 import java.io.FileWriter;
 import com.alibaba.fastjson2.JSONObject;
+import com.xxdb.data.Vector;
 
 public class fromDolphinDB{
     /*
@@ -44,79 +46,21 @@ public class fromDolphinDB{
         this.threadCount = threadCount;
     }
 
-    public static void main(String[] args) throws IOException {
-        // 测试类
-        String HOST = "172.16.0.184";
-        int PORT = 8001;
-        String USERNAME = "maxim";
-        String PASSWORD = "dyJmoc-tiznem-1figgu";
-        DBConnection conn = new DBConnection();
-        conn.connect(HOST, PORT, USERNAME, PASSWORD);
-        conn.login(USERNAME, PASSWORD, true);
-
-        fromDolphinDB test = new fromDolphinDB(conn, "dfs://MinKDB", "Min1K", 4);
-        String[] symbol_list = new String[]{"000001.SZ", "000002.SZ", "000004.SZ", "000005.SZ", "000006.SZ", "000007.SZ", "000008.SZ", "000009.SZ", "000010.SZ", "000011.SZ", "000012.SZ", "000013.SZ", "000014.SZ", "000015.SZ", "000016.SZ", "000017.SZ", "000018.SZ"};
-        ConcurrentHashMap<LocalDate, BasicTable> data = test.toBasicTable(
-                LocalDate.parse("2023.02.01", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
-                LocalDate.parse("2023.02.03", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
-                List.of(symbol_list),
-                 "tradeDate", "code", "tradeTime","open", "high", "low", "close", "volume");
-        HashMap<String, String> transMap = new HashMap<>();
-        List<String> featureName = Arrays.asList(new String[]{"code","tradeDate","tradeTime","open", "high", "low", "close","volume"});
-        List<String> structName = Arrays.asList(new String[]{"symbol","tradeDate","tradeTime","open", "high", "low", "close","volume"});
-        for (int i=0; i<featureName.size(); i++){
-            transMap.put(featureName.get(i), structName.get(i));
-        }
-        ConcurrentHashMap<LocalDate, List<KBar>> result =
-                test.toJavaBean(data, KBar.class, transMap);
-        for (LocalDate date: result.keySet()){
-            List<KBar> kbarList = result.get(date);
-            for (KBar kbar: kbarList){
-                System.out.println(kbar.symbol + " " + kbar.tradeDate + " " + kbar.tradeTime + " " + kbar.open + " " + kbar.high + " " + kbar.low + " " + kbar.close + " " + kbar.volume);
-            }
-        }
-    }
-
-
     // DolphinDB -> BasicTable -> JavaBean
     // Step1. DolphinDB -> ConcurrentHashMap<LocalDate, BasicTable>
     public ConcurrentHashMap<LocalDate, BasicTable> toBasicTable(LocalDate start_date, LocalDate end_date, Collection<String> symbol_list,
-                                                                 String dateCol, String symbolCol, String...featureCols) throws IOException {
+                                                                 String timeCol, Boolean isTimeStampCol, String symbolCol, String...featureCols) throws IOException {
         /*
         * 将DolphinDB数据转换为BasicTable
         * 输入: DolphinDB连接, 数据库名, 表名, 起始时间, 结束时间, 标的列表, 时间列, 标的列, 特征列...
         * 输出: ConcurrentHashMap<LocalDate, BasicTable>
         * 注: 这里目前只能有一个时间列+一个symbol列去做范围限制,时间列必传,标的列可不传
         * */
-
-        // 转换字符串为DolphinDB List str, 并拼接SQL脚本
-        if (featureCols == null){
-            throw new NullPointerException("特征列不允许为空");
-        }
-        String feature_list_str = Utils.arrayToDolphinDBStrSplit(List.of(featureCols));  // 这里用List.of(),将String[]转换为Collection<String>
-        String script1 = "select %s,%s,%s ".formatted(symbolCol, dateCol, feature_list_str);
-        System.out.println("featureList: " + feature_list_str);
-
-        String script3 = "";
-        if (symbol_list != null){
-            String symbol_list_str = Utils.arrayToDolphinDBString(symbol_list);
-            script3 = "and %s in ".formatted(symbolCol)+symbol_list_str;
-            System.out.println("symbolList: " + symbol_list_str);
-        }else{
-            script3 = "";
-            System.out.println("symbolList: null");
-        }
-
-        // 获取所有时间
-        // LocalDate -> String Dot
-        String startDotDate = start_date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-        String endDotDate = end_date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-
-        BasicDateVector date_list = (BasicDateVector) conn.run("""
-                t = select count(*) as count from loadTable("%s", "%s") where %s between date(%s) and date(%s) group by %s order by %s; 
-                exec %s from t
-                """.formatted(this.dbName, this.tbName, dateCol, startDotDate, endDotDate, dateCol, dateCol, dateCol));
-        System.out.println("dateList: " + date_list.getString());
+        // 获取SQL脚本 & 时间信息
+        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, timeCol);
+        String[] script = toBasicTableScriptUtil(symbol_list, timeCol, isTimeStampCol, symbolCol, featureCols);
+        String script1 = script[0];
+        String script3 = script[1];
 
         // 创建多线程结果接收集合
         ConcurrentHashMap<LocalDate, BasicTable> resultMap = new ConcurrentHashMap<>();
@@ -126,8 +70,8 @@ public class fromDolphinDB{
             LocalDate tradeDate = date_list.getDate(i);
             String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
             String script2 = """ 
-                from loadTable("%s","%s") where %s == date(%s)
-                """.formatted(this.dbName, this.tbName, dateCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+                from loadTable("%s","%s") where date(%s) == date(%s)
+                """.formatted(this.dbName, this.tbName, timeCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
             String finalScript = script1+script2+script3; // 这里要写在外边
 
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -149,9 +93,133 @@ public class fromDolphinDB{
         return resultMap;
     }
 
+    public ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> toBasicTableBySymbol(LocalDate start_date, LocalDate end_date, Collection<String> symbol_list,
+                                                                                  String timeCol, Boolean isTimeStampCol, String symbolCol, String...featureCols) throws IOException {
+        /*
+         * 将DolphinDB数据转换为BasicTable, 同时每个日期内部按照标的进行分组(HashMap)
+         * 输入: DolphinDB连接, 数据库名, 表名, 起始时间, 结束时间, 标的列表, 时间列, 标的列, 特征列...
+         * 输出: ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>>
+         * */
+        // 获取SQL脚本 & 时间信息
+        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, timeCol);
+        String[] script = toBasicTableScriptUtil(symbol_list, timeCol, isTimeStampCol, symbolCol, featureCols);
+        String script1 = script[0];
+        String script3 = script[1];
+
+        // 创建多线程结果接收集合
+        ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> resultMap = new ConcurrentHashMap<>();
+        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (int i=0; i<date_list.rows(); i++){  // 注: DolphinDB的JavaAPI向量/Table全部都是用rows获取维度的
+            LocalDate tradeDate = date_list.getDate(i);
+            String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+            String script2 = """ 
+                from loadTable("%s","%s") where date(%s) == date(%s)
+                """.formatted(this.dbName, this.tbName, timeCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+            String finalScript = script1+script2+script3; // 这里要写在外边
+
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try{
+                    // 获取结果
+                    BasicTable data = (BasicTable) conn.run(finalScript, this.threadCount, this.threadCount);
+                    System.out.println("Processing tradeDate: " + tradeDate);
+
+                    // 获取所有唯一的标的列表
+                    HashMap<String, Collection<Integer>> symbolList = new HashMap<>();
+                    for (int j=0; j<data.rows(); j++){
+                        String symbol = data.getColumn(symbolCol).getString(j);
+                        if (!symbolList.containsKey(symbol)){
+                            symbolList.put(symbol, new ArrayList<>());
+                        }
+                        symbolList.get(symbol).add(j);
+                    }
+
+                    // 保存结果至线程安全的集合
+                    for (String symbol: symbolList.keySet()){
+                        int[] indices = symbolList.get(symbol).stream().mapToInt(Integer::intValue).toArray();
+                        BasicTable subData = (BasicTable) data.getSubTable(indices);
+                        if (!(resultMap.containsKey(tradeDate))){
+                            resultMap.put(tradeDate, new HashMap<>());
+                        }
+                        resultMap.get(tradeDate).put(symbol, subData);
+                    }
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            futures.add(future);
+        }
+
+        // 等待所有线程任务完成后, 返回结果
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return resultMap;
+    }
+
+    public ConcurrentHashMap<LocalDate, TreeMap<LocalTime, BasicTable>> toBasicTableByTime(LocalDate start_date, LocalDate end_date, Collection<String> symbol_list,
+                                                                                                 String dateCol, String timeCol, String symbolCol, String...featureCols) throws IOException {
+        /*
+         * 将DolphinDB数据转换为BasicTable, 同时每个时间段内部按照标的进行分组同时按照时间排序(TreeMap)
+         * 输入: DolphinDB连接, 数据库名, 表名, 起始时间, 结束时间, 标的列表, 时间列, 标的列, 特征列...
+         * 输出: ConcurrentHashMap<LocalDate, LinkedHashMap<LocalTime, BasicTable>>
+         * */
+        // 获取SQL脚本 & 时间信息
+        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, dateCol);
+        String[] script = toBasicTableScriptUtil(symbol_list, dateCol, false, symbolCol, featureCols);  // 这里因为用到这个方法的场景对应的数据是一定是有分钟列的
+        String script1 = script[0];
+        String script3 = script[1];
+
+        // 创建多线程结果接收集合
+        ConcurrentHashMap<LocalDate, TreeMap<LocalTime, BasicTable>> resultMap = new ConcurrentHashMap<>();
+        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (int i=0; i<date_list.rows(); i++){  // 注: DolphinDB的JavaAPI向量/Table全部都是用rows获取维度的
+            LocalDate tradeDate = date_list.getDate(i);
+            String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+            String script2 = """ 
+                from loadTable("%s","%s") where date(%s) == date(%s)
+                """.formatted(this.dbName, this.tbName, dateCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+            String finalScript = script1+script2+script3; // 这里要写在外边
+
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try{
+                    // 获取结果
+                    BasicTable data = (BasicTable) conn.run(finalScript, this.threadCount, this.threadCount);
+                    System.out.println("Processing tradeDate: " + tradeDate);
+
+                    // 获取所有时间戳及其对应的行索引
+                    HashMap<LocalTime, Collection<Integer>> timeDict = new HashMap<>();
+                    for (int j=0; j<data.rows(); j++){
+                        LocalTime time = LocalTime.parse(data.getColumn(timeCol).getString(j));
+                        if (!timeDict.containsKey(time)){
+                            timeDict.put(time, new ArrayList<>());
+                        }
+                        timeDict.get(time).add(j);
+                    }
+
+                    // 保存结果至线程安全的集合
+                    for (LocalTime time: timeDict.keySet()){
+                        int[] indices = timeDict.get(time).stream().mapToInt(Integer::intValue).toArray();
+                        BasicTable subData = (BasicTable) data.getSubTable(indices);
+                        if (!(resultMap.containsKey(tradeDate))){
+                            resultMap.put(tradeDate, new TreeMap<>());
+                        }
+                        resultMap.get(tradeDate).put(time, subData);
+                    }
+                }catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            futures.add(future);
+        }
+
+        // 等待所有线程任务完成后, 返回结果
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return resultMap;
+    }
+
     // Step2. BasicTable -> JavaBean Your Needed
     // 这里一定是按照日期进行Map的
-    public <T> ConcurrentHashMap<LocalDate, List<T>> toJavaBean(ConcurrentHashMap<LocalDate, BasicTable> dataMap,
+    public <T> ConcurrentHashMap<LocalDate, List<T>> toJavaBeans(ConcurrentHashMap<LocalDate, BasicTable> dataMap,
                                                              Class<?> clazz, HashMap<String, String> transMap) throws IOException {
         /* 将BasicTable转换为JavaBean
         * transMap: 键为DolphinDB列名, 值为JavaBean属性名
@@ -202,10 +270,261 @@ public class fromDolphinDB{
         return resultMap;
     }
 
-    /*独有工具方法*/
+    public <T> ConcurrentHashMap<LocalDate, HashMap<String, T>> toJavaBeansBySymbol(ConcurrentHashMap<LocalDate, BasicTable> dataMap, String symbolCol,
+                                                                Class<?> clazz, HashMap<String, String> transMap) throws IOException {
+        /* 将BasicTable转换为JavaBean
+         * transMap: 键为DolphinDB列名, 值为JavaBean属性名
+         * */
+
+        // 创建多线程结果接收集合
+        ConcurrentHashMap<LocalDate, HashMap<String, T>> resultMap = new ConcurrentHashMap<>();
+        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        // 多线程遍历所有日期的数据
+        for (LocalDate tradeDate : dataMap.keySet()){
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    BasicTable data = dataMap.get(tradeDate);  // 取出这个日期的数据
+                    for (int i = 0; i < data.rows(); i++){
+                        String symbol = data.getColumn(symbolCol).getString(i);
+                        // 为每一行创建新的JavaBean实例
+                        T instance = (T) clazz.getDeclaredConstructor().newInstance();
+
+                        // 遍历transMap进行字段映射
+                        for (Map.Entry<String, String> transEntry : transMap.entrySet()) {
+                            String colName = transEntry.getKey();    // DolphinDB列名
+                            String beanFieldName = transEntry.getValue(); // JavaBean属性名
+
+                            // 检查BasicTable是否包含该列
+                            if (data.getColumn(colName) != null) {
+                                // 获取列数据的第i行
+                                Entity columnData = data.getColumn(colName).get(i);
+                                // 使用反射设置JavaBean属性
+                                setBeanField(instance, beanFieldName, columnData);
+                            }
+                        }
+                        resultMap.putIfAbsent(tradeDate, new HashMap<>());
+                        resultMap.get(tradeDate).put(symbol, instance);
+                    }
+                    System.out.println("processing JavaBean tradeDate"+tradeDate);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            futures.add(future);  // 添加线程任务
+        }
+
+        // 等待所有线程任务完成后, 返回结果
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return resultMap;
+    }
+
+    public <T> ConcurrentHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> toJavaBeansByTime(ConcurrentHashMap<LocalDate, BasicTable> dataMap,
+                                                                                                      String symbolCol, String timeCol, Class<?> clazz, HashMap<String, String> transMap) throws IOException {
+        /* 将BasicTable转换为JavaBean
+         * transMap: 键为DolphinDB列名, 值为JavaBean属性名
+         * */
+
+        // 创建多线程结果接收集合
+        ConcurrentHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new ConcurrentHashMap<>();
+        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        // 多线程遍历所有日期的数据
+        for (LocalDate tradeDate : dataMap.keySet()) {
+            resultMap.putIfAbsent(tradeDate, new TreeMap<>());
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    BasicTable data = dataMap.get(tradeDate);
+                    // 获取所有时间戳及其对应的行索引
+                    HashMap<LocalTime, Collection<Integer>> timeDict = new HashMap<>();
+                    for (int j = 0; j < data.rows(); j++) {
+                        LocalTime time = LocalTime.parse(data.getColumn(timeCol).getString(j));
+                        if (!timeDict.containsKey(time)) {
+                            timeDict.put(time, new ArrayList<>());
+                        }
+                        timeDict.get(time).add(j);
+                    }
+                    for (LocalTime time : timeDict.keySet()) {
+                        resultMap.get(tradeDate).putIfAbsent(time, new HashMap<>());
+
+                        int[] indices = timeDict.get(time).stream().mapToInt(i -> i).toArray();
+                        BasicTable df = (BasicTable) data.getSubTable(indices);
+                        // 遍历这一分钟的所有行(每行对应一个标的)
+                        for (int i = 0; i < df.rows(); i++) {
+                            // 为每一行创建新的JavaBean实例
+                            T instance = (T) clazz.getDeclaredConstructor().newInstance();
+
+                            String symbol = df.getColumn(symbolCol).getString(i);
+                            for (Map.Entry<String, String> transEntry : transMap.entrySet()) {
+                                String colName = transEntry.getKey();
+                                String beanFieldName = transEntry.getValue();
+                                Entity columnData = df.getColumn(colName).get(i);
+                                setBeanField(instance, beanFieldName, columnData);
+                            }
+                            resultMap.get(tradeDate).get(time).put(symbol, instance);
+                        }
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            futures.add(future);
+        }
+
+        // 等待所有线程任务完成后, 返回结果
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return resultMap;
+    }
+
+    public <T> ConcurrentHashMap<LocalDate, HashMap<String, T>> toJavaBeanBySymbol(ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> dataMap, String symbolCol,
+                                                             Class<?> clazz, HashMap<String, String> transMap) throws IOException {
+        /* 将BasicTable转换为JavaBean, 按照标的列(symbolCol列)进行Map
+        * transMap: 键为DolphinDB列名, 值为JavaBean属性名
+        * */
+        ConcurrentHashMap<LocalDate, HashMap<String, T>> resultMap = new ConcurrentHashMap<>();
+        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        // 多线程遍历所有日期的数据
+        for (LocalDate tradeDate : dataMap.keySet()){
+            HashMap<String, BasicTable> dataDict = dataMap.get(tradeDate);
+            HashMap<String, T> partMap = new HashMap<>();
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    // 遍历所有的标的列表
+                    for (String symbol: dataDict.keySet()){
+                        BasicTable data = dataDict.get(symbol);
+                        // 为每一个标的创建一个新的JavaBean实例
+                        T instance = (T) clazz.getDeclaredConstructor().newInstance();
+
+                        // 遍历transMap进行字段映射
+                        for (Map.Entry<String, String> transEntry : transMap.entrySet()) {
+                            String colName = transEntry.getKey();    // DolphinDB列名
+                            String beanFieldName = transEntry.getValue(); // JavaBean属性名
+
+                            // 检查BasicTable是否包含该列
+                            if (data.getColumn(colName) != null) {
+                                // 获取列数据的第i行
+                                Entity columnData = data.getColumn(colName).get(0);
+                                // 使用反射设置JavaBean属性
+                                setBeanField(instance, beanFieldName, columnData);
+                            }
+                        }
+                        partMap.put(symbol, instance);
+                    }
+                    resultMap.put(tradeDate, partMap);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            futures.add(future);
+        }
+        // 等待所有线程任务完成后, 返回结果
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return resultMap;
+    }
+
+    public <T> ConcurrentHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> toJavaBeanByTime(ConcurrentHashMap<LocalDate, TreeMap<LocalTime, BasicTable>> dataMap, String symbolCol,
+                                                                                                     Class<?> clazz, HashMap<String, String> transMap) throws IOException {
+        /* 将BasicTable转换为JavaBean
+         * transMap: 键为DolphinDB列名, 值为JavaBean属性名
+         * */
+
+        // 创建多线程结果接收集合
+        ConcurrentHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new ConcurrentHashMap<>();
+        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        // 多线程遍历所有日期的数据
+        for (LocalDate tradeDate : dataMap.keySet()){
+            resultMap.putIfAbsent(tradeDate, new TreeMap<>());
+
+            Collection<LocalTime> time_list = dataMap.get(tradeDate).keySet();
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    for (LocalTime tradeTime: time_list){
+                        resultMap.get(tradeDate).putIfAbsent(tradeTime, new HashMap<>());
+
+                        BasicTable data = dataMap.get(tradeDate).get(tradeTime);
+                        // 遍历每一行数据(每行对应一个标的)
+                        for (int i = 0; i < data.rows(); i++){
+                            // 为每一行创建一个新的JavaBean实例
+                            T instance = (T) clazz.getDeclaredConstructor().newInstance();
+                            String symbol = data.getColumn(symbolCol).get(i).getString(); // 获取当前行的标的代码
+                            // 遍历transMap进行字段映射
+                            for (Map.Entry<String, String> transEntry : transMap.entrySet()) {
+                                String colName = transEntry.getKey();
+                                String beanFieldName = transEntry.getValue();
+
+                                // 检查BasicTable是否包含该列
+                                if (data.getColumn(colName) != null) {
+                                    Entity columnData = data.getColumn(colName).get(i);
+                                    setBeanField(instance, beanFieldName, columnData); // 利用反射设置JavaBean属性
+                                }
+                            }
+                            resultMap.get(tradeDate).get(tradeTime).put(symbol, instance);
+                        }
+                    }
+                }
+                catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            futures.add(future);
+        }
+        // 等待所有线程任务完成后, 返回结果
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        return resultMap;
+    }
+
+    /*工具方法*/
+    public String[] toBasicTableScriptUtil(Collection<String> symbol_list, String timeCol, Boolean isTimestampCol, String symbolCol, String...featureCols){
+        /* 生成SQL字符串的逻辑
+         * 转换字符串为DolphinDB List str, 并拼接SQL脚本
+         * isTimeStampCol: 表示输入的timeCol是否为时间戳列
+         * isTimeStampCol=True: 需要拆分为TradeDate和TradeTime[这里列名写死, 叫你不听话增加我的开发难度]
+         * isTimeStampCol=False: 说明用户认为原来的列里面有timeCol, 后续处理能够正常处理
+        * */
+        if (featureCols == null){
+            throw new NullPointerException("特征列不允许为空");
+        }
+        String script1;
+        String feature_list_str = Utils.arrayToDolphinDBStrSplit(List.of(featureCols));  // 这里用List.of(),将String[]转换为Collection<String>
+        if (!isTimestampCol){ // 说明是日期列+分钟列的组合<推荐, 棒棒哒>
+            script1 = "select %s,%s,%s ".formatted(symbolCol, timeCol, feature_list_str);
+            System.out.println("featureList: " + feature_list_str);
+        }else{ // 拆成日期列TradeDate+分钟列TradeTime
+            script1 = "select %s, %s.date() as `TradeDate, %s.time() as `TradeTime,%s ".formatted(symbolCol, timeCol, timeCol, feature_list_str);
+        }
+
+        String script3 = "";
+        if (symbol_list != null){
+            String symbol_list_str = Utils.arrayToDolphinDBString(symbol_list);
+            script3 = "and %s in ".formatted(symbolCol)+symbol_list_str;
+            System.out.println("symbolList: " + symbol_list_str);
+        }else{
+            script3 = "";
+            System.out.println("symbolList: null");
+        }
+        return new String[]{script1, script3};
+    }
+
+    public BasicDateVector toBasicTableDateUtil(LocalDate start_date, LocalDate end_date, String timeCol) throws IOException {
+        // LocalDate -> String Dot
+        String startDotDate = start_date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+        String endDotDate = end_date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+
+        BasicDateVector date_list = (BasicDateVector) conn.run("""
+                t = select count(*) as count from loadTable("%s", "%s") where date(%s) between date(%s) and date(%s) group by date(%s) as %s; 
+                exec %s from t
+                """.formatted(this.dbName, this.tbName, timeCol, startDotDate, endDotDate, timeCol, timeCol, timeCol));
+        System.out.println("dateList: " + date_list.getString());
+        return date_list;
+    }
+
+
     // 利用DolphinDB 中的类型反射设置JavaBean属性
     // 辅助方法：使用反射设置JavaBean属性
-
     private void setBeanField(Object instance, String fieldName, Entity columnData) throws Exception {
     Class<?> clazz = instance.getClass();
 
