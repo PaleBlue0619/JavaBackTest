@@ -1,6 +1,7 @@
 package com.maxim.service.getdata;
 // Redis模块
 import com.alibaba.fastjson2.JSON;
+import com.maxim.service.JedisDBPool;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 // 工具模块
@@ -28,7 +29,7 @@ public class fromRedis{
     *
     * */
 
-    public <T> LinkedHashMap<LocalDate, List<T>> RedisToJavaBeans(Jedis jedis,
+    public <T> LinkedHashMap<LocalDate, List<T>> RedisToJavaBeans(JedisPool jedis,
                                                                 Collection<LocalDate> dateList,
                                                                 String redisKey,
                                                                 Class<T> clazz){
@@ -37,7 +38,7 @@ public class fromRedis{
         return resultMap;
     }
 
-    public <T> LinkedHashMap<LocalDate, HashMap<String, T>> RedisToJavaBeansBySymbol(Jedis jedis,
+    public <T> LinkedHashMap<LocalDate, HashMap<String, T>> RedisToJavaBeansBySymbol(JedisPool jedis,
                                                                           Collection<LocalDate> dateList,
                                                                           String redisKey,
                                                                           Class<T> clazz){
@@ -46,7 +47,7 @@ public class fromRedis{
         return resultMap;
     }
 
-    public <T> LinkedHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> RedisToJavaBeansByTime(Jedis jedis,
+    public <T> LinkedHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> RedisToJavaBeansByTime(JedisPool jedis,
                                                                                                        Collection<LocalDate> dateList,
                                                                                                        String redisKey,
                                                                                                        Class<T> clazz){
@@ -56,7 +57,7 @@ public class fromRedis{
         return resultMap;
     }
 
-    public <T> LinkedHashMap<LocalDate, HashMap<String, T>> RedisToJavaBeanBySymbol(Jedis jedis,
+    public <T> LinkedHashMap<LocalDate, HashMap<String, T>> RedisToJavaBeanBySymbol(JedisPool jedis,
                                                                                     Collection<LocalDate> dateList,
                                                                                     String rediskey,
                                                                                     Class<T> clazz){
@@ -66,7 +67,7 @@ public class fromRedis{
         return resultMap;
     }
 
-    public <T> LinkedHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> RedisToJavaBeanByTime(Jedis jedis,
+    public <T> LinkedHashMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> RedisToJavaBeanByTime(JedisPool jedis,
                                                                                                        Collection<LocalDate> dateList,
                                                                                                        String redisKey,
                                                                                                        Class<T> clazz){
@@ -77,7 +78,7 @@ public class fromRedis{
                                                                    }
 
     // 多线程异步从Redis中获取Object的通用函数
-    public <T> LinkedHashMap<LocalDate, T> fromRedisHashCommon(Jedis jedis,
+    public <T> LinkedHashMap<LocalDate, T> fromRedisHashCommon(JedisPool jedisPool,
                                                                Collection<LocalDate> dateList,
                                                                String redisKey,
                                                                Class<T> clazz){
@@ -89,6 +90,7 @@ public class fromRedis{
             LocalDate finalDate = date; // 多线程中需要final变量
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 try{
+                    Jedis jedis = jedisPool.getResource();
                     String strJson = jedis.hget(redisKey, finalDate.toString()); // 获取Redis中序列化的字符串数据
                     if (strJson != null){
                         T object = JSON.parseObject(strJson, clazz);
