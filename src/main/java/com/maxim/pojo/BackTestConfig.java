@@ -20,11 +20,8 @@ import com.xxdb.DBConnection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 import java.time.*;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 
 // JavaBean
 public class BackTestConfig {
@@ -72,7 +69,7 @@ public class BackTestConfig {
     // 股票类-基本信息
     Collection<LocalDate> stockDateList = new ArrayList<>();  // 股票标的的回测时间(天)
     Collection<LocalTime> stockTimeList = new ArrayList<>();   // 股票标的的回测时间(每天中的分钟)
-    LinkedHashMap<Integer, HashMap<String, StockBar>> stockKDict = new LinkedHashMap<>(); // stock_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
+    TreeMap<Integer, HashMap<String, StockBar>> stockKDict = new TreeMap<>(); // stock_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
     HashMap<String, StockInfo> stockInfoDict = new HashMap<>(); // stock_info_dict -> symbol -> OHLC+startDate/endDate Info
     LinkedHashMap stockSignalDict = new LinkedHashMap<>();
     LinkedHashMap stockMacroDict = new LinkedHashMap<>();
@@ -88,7 +85,7 @@ public class BackTestConfig {
     // 期货类-基本信息
     Collection<LocalDate> futureDateList = new ArrayList<>();  // 股票标的的回测时间(天)
     Collection<LocalTime> futureTimeList = new ArrayList<>();   // 股票标的的回测时间(每天中的分钟)
-    LinkedHashMap<Integer, HashMap<String, FutureBar>> futureKDict = new LinkedHashMap<>(); // future_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
+    TreeMap<Integer, HashMap<String, FutureBar>> futureKDict = new TreeMap<>(); // future_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
     HashMap<String, FutureInfo> futureInfoDict = new HashMap<>();
     LinkedHashMap futureSignalDict = new LinkedHashMap<>();
     LinkedHashMap futureMacroDict = new LinkedHashMap<>();
@@ -456,11 +453,11 @@ public class BackTestConfig {
         this.stockCounterJson = stockCounterJson;
     }
 
-    public LinkedHashMap<Integer, HashMap<String, StockBar>> getStockKDict() {
+    public TreeMap<Integer, HashMap<String, StockBar>> getStockKDict() {
         return stockKDict;
     }
 
-    public void setStockKDict(LinkedHashMap<Integer, HashMap<String, StockBar>> stockKDict) {
+    public void setStockKDict(TreeMap<Integer, HashMap<String, StockBar>> stockKDict) {
         this.stockKDict = stockKDict;
     }
 
@@ -681,11 +678,11 @@ public class BackTestConfig {
         this.futureTimeList = futureTimeList;
     }
 
-    public LinkedHashMap<Integer, HashMap<String, FutureBar>> getFutureKDict() {
+    public TreeMap<Integer, HashMap<String, FutureBar>> getFutureKDict() {
         return futureKDict;
     }
 
-    public void setFutureKDict(LinkedHashMap<Integer, HashMap<String, FutureBar>> futureKDict) {
+    public void setFutureKDict(TreeMap<Integer, HashMap<String, FutureBar>> futureKDict) {
         this.futureKDict = futureKDict;
     }
 

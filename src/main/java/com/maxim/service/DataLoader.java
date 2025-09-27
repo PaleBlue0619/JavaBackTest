@@ -347,7 +347,7 @@ public class DataLoader {
 
         return infoMap;
     }
-    public static LinkedHashMap<Integer, HashMap<String, StockBar>> getStockKDataFromJson(String JsonPath, LocalDate tradeDate, Integer threadCount){
+    public static TreeMap<Integer, HashMap<String, StockBar>> getStockKDataFromJson(String JsonPath, LocalDate tradeDate, Integer threadCount){
         /*
         分两步进行执行:
         Step1. 读取目标文件夹的一天Json文件, 并返回一个ConcurrentHashMap -> 转换为HashMap<String, LinkedHashMap<Integer, StockBar>>
@@ -360,12 +360,12 @@ public class DataLoader {
 
         File dateDir = new File(datePath);
         if (!dateDir.exists()){ // 如果目录不存在, 则返回一个空的LinkedHashMap
-            return new LinkedHashMap<>();
+            return new TreeMap<>();
         }
 
         File[] jsonFiles = dateDir.listFiles((dir, name) -> name.endsWith(".json"));
         if (jsonFiles == null || jsonFiles.length == 0) { // 如果目录下没有任何符合条件的Json文件
-            return new LinkedHashMap<>();
+            return new TreeMap<>();
         }
 
         // 创建ConcurrentHashMap保证线程安全
@@ -439,12 +439,10 @@ public class DataLoader {
         }
 
         // 保持时间戳顺序
-        LinkedHashMap<Integer, HashMap<String, StockBar>> sortedTransformedDict = new LinkedHashMap<>();
-        transFormedMap.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEachOrdered(entry -> sortedTransformedDict.put(entry.getKey(), entry.getValue()));
+        TreeMap<Integer, HashMap<String, StockBar>> sortedTransformedDict = new TreeMap<>(transFormedMap);
 
-        // 返回LinkedHashMap
+        // 返回TreeMap
         return sortedTransformedDict;
+
     }
 }

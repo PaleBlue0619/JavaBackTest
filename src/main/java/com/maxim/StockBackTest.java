@@ -14,10 +14,7 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 import static com.maxim.service.DataLoader.getStockInfoFromJson;
 import static com.maxim.service.DataLoader.getStockKDataFromJson;
@@ -36,7 +33,7 @@ public class StockBackTest {
         config.setCurrentDotDate(tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")));
         config.setCurrentStrDate(tradeDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
 
-        LinkedHashMap<Integer, HashMap<String, StockBar>> MinStockBars = getStockKDataFromJson(config.getStockCounterJson(), tradeDate, 3);
+        TreeMap<Integer, HashMap<String, StockBar>> MinStockBars = getStockKDataFromJson(config.getStockCounterJson(), tradeDate, 3);
         config.setStockKDict(MinStockBars);
         HashMap<String, StockInfo> DailyStockInfo = getStockInfoFromJson(config.getStockInfoJson(), tradeDate, 3);
         config.setStockInfoDict(DailyStockInfo);
