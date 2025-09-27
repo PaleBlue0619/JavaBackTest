@@ -3,7 +3,6 @@ package com.maxim.service.getdata;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 // 工具模块
-import javax.print.DocFlavor;
 import java.io.IOException;
 import java.lang.Void;
 import java.nio.file.Files;
