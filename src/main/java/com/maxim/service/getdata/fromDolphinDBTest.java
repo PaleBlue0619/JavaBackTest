@@ -77,7 +77,7 @@ public class fromDolphinDBTest {
 
         // fromRedis-1
         fromRedis fromRedis = new fromRedis();
-        LinkedHashMap<LocalDate, List<KBar>> beanMap1 = fromRedis.RedisToJavaBeans(jedisPool,
+        TreeMap<LocalDate, List<KBar>> beanMap1 = fromRedis.RedisToJavaBeans(jedisPool,
                 List.of(LocalDate.parse("2023.02.01", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                         LocalDate.parse("2023.02.02", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                         LocalDate.parse("2023.02.03", DateTimeFormatter.ofPattern("yyyy.MM.dd"))),
