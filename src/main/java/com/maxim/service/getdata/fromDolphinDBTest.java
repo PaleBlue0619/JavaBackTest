@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 import com.maxim.pojo.kbar.KBar;
 import com.maxim.service.JedisDBPool;
+import com.maxim.service.savedata.toRedis;
 import com.xxdb.DBConnection;
 import com.xxdb.data.BasicTable;
 import redis.clients.jedis.Jedis;
