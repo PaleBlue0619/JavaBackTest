@@ -1,63 +1,62 @@
 package com.maxim;
-// 数据结构模块
-import com.maxim.service.struct.StockInfoStruct;
-import com.maxim.service.struct.StockKBarStruct;
-import com.maxim.service.Utils; // 工具模块
-import com.maxim.service.DataLoader; // 数据导入模块
+import com.maxim.pojo.emun.AssetType;
+import com.maxim.pojo.emun.DataFreq;
+import com.maxim.service.DataLoader;
 import com.xxdb.DBConnection;
-import com.xxdb.data.BasicTable;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Collection;
+import java.util.HashMap;
 
 public class DataPrepare {
-    private static final String DBName = "dfs://stock_cn/combination";
-    private static final String TBName = "StockDailyKBar";
-    private static final String HOST =  "172.16.0.184";
-    private static final int PORT = 8001;
-    private static final String USERNAME = "maxim";
-    private static final String PASSWORD = "dyJmoc-tiznem-1figgu";
     public static void main(String[] args) throws IOException {
-        // 创建DolphinDB连接对象 + 数据库连接池
+        DataLoader loader = new DataLoader("172.16.0.184", 8001,
+                "maxim", "dyJmoc-tiznem-1figgu", 8);
         DBConnection conn = new DBConnection();
-        conn.connect(HOST, PORT);
-        conn.login(USERNAME, PASSWORD, true);
-        String DBName = "dfs://MinuteKDB";
-        String TBName = "stock_bar";
-        String barSavePath = "D:\\Maxim\\BackTest\\JavaBackTest\\data\\stock_cn\\kbar";
-        String infoSavePath = "D:\\Maxim\\BackTest\\JavaBackTest\\data\\stock_cn\\info";
-        String start_date = "2023.02.01";
-        String end_date = "2023.03.01";
-        // 指定股票列表
-        ArrayList<String> symbol_list = new ArrayList<>(
-                Arrays.asList("000001","000002","000004","000005","000006","000007","000008","000009","000010")
-        );
+        conn.connect("172.16.0.184", 8001, "maxim", "dyJmoc-tiznem-1figgu");
+        conn.login("maxim", "dyJmoc-tiznem-1figgu", false);
+        LocalDate start_date = LocalDate.parse("2020-01-01");
+        LocalDate end_date = LocalDate.parse("2025-10-01");
+        Collection<String> symbol_list = Arrays.asList("000001.SZ", "000002.SZ");
+        HashMap<String, String> transMap = new HashMap<>();
+//        List<String> featureName = Arrays.asList(new String[]{"code","tradeDate","tradeTime","open", "high", "low", "close","volume"});
+//        List<String> structName = Arrays.asList(new String[]{"symbol","tradeDate","tradeTime","open", "high", "low", "close","volume"});
+//        for (int i=0; i<featureName.size(); i++){
+//            transMap.put(featureName.get(i), structName.get(i));
+//        }
+        // Case-1 股票K线异步多线程保存json
+        loader.KBarToJsonAsync(AssetType.STOCK, DataFreq.MINUTE,"dfs://MinKDB", "Min1K", "tradeDate", "tradeTime", "code",
+                new HashMap<String, String>() {{ // 映射关系: DolphinDB -> JavaBean
+                    put("code", "symbol");
+                    put("tradeDate", "tradeDate");
+                    put("tradeTime", "tradeTime");
+                    put("open", "open");
+                    put("high", "high");
+                    put("low", "low");
+                    put("close", "close");
+                    put("volume", "volume");
+                }},
+                "D:\\BackTest\\JavaBackTest\\data\\stock_cn\\kbar\\", false,
+                start_date, end_date, symbol_list, "open", "high", "low", "close", "volume");
 
-        // 定义KBar & Info结构体
-        StockKBarStruct barStruct = new StockKBarStruct("SecurityID", "TradeDate", "TradeTime",
-                "open", "high", "low", "close", "volume");
-        StockInfoStruct infoStruct = new StockInfoStruct("SecurityID", "TradeDate",
-                "OpenPrice", "HighestPrice", "LowestPrice", "ClosePrice");
-
-        // 多线程获取KBar数据
-        Utils.deleteFileDir(barSavePath); // 先删除上一次生成的全部文件
-        ConcurrentHashMap<LocalDate, BasicTable> KBarMap = DataLoader.getStockKBar(conn, DBName, TBName, barSavePath, "minute",
-                start_date, end_date, barStruct, symbol_list);
-        conn.close();
-
-        // 创建DolphinDB连接对象 + 数据库连接池
-        DBConnection conn1 = new DBConnection();
-        String DBName1 = "dfs://stockDayKDetail";
-        String TBName1 = "stockDayK";
-        conn1.connect(HOST, PORT);
-        conn1.login(USERNAME, PASSWORD, true);
-
-        // 多线程获取Info数据
-        Utils.deleteFileDir(infoSavePath); // 先删除上一次生成的全部文件
-        DataLoader.getStockInfo(conn1, DBName1, TBName1, infoSavePath, start_date, end_date, infoStruct, symbol_list);
-        conn1.close();
+        // Case-2 期货K线异步多线程保存json
+        symbol_list = Arrays.asList("AL", "AU");
+        loader.KBarToJsonAsync(AssetType.FUTURE, DataFreq.DAY,"dfs://DayKDB", "o_tushare_futures_daily",
+                "trade_date", null, "ts_code_body",
+                new HashMap<String, String>() {{ // 映射关系: DolphinDB -> JavaBean
+                    put("ts_code_body", "symbol");
+                    put("trade_date", "tradeDate");
+                    put("open", "open");
+                    put("high", "high");
+                    put("low", "low");
+                    put("close", "close");
+                    put("volume", "volume");
+                    put("pre_settle", "pre_settle");
+                    put("oi", "open_interest");
+                }},
+                "D:\\BackTest\\JavaBackTest\\data\\future_cn\\kbar\\", false,
+                start_date, end_date, symbol_list, "open", "high", "low", "close", "volume", "pre_settle", "oi");
     }
 }

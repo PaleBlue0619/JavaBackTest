@@ -28,6 +28,4 @@ public class StockOpenOrder extends StockOrder {
         this.dynamic_loss = dynamic_loss;
         this.commission = commission;
     }
-
-
 }

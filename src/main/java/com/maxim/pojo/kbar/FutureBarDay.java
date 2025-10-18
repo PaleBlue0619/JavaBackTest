@@ -1,19 +1,17 @@
 package com.maxim.pojo.kbar;
 import java.time.*;
 
-public class FutureBar extends KBar{
-    public Double pre_settle;
+public class FutureBarDay extends KBar{
+    public Double pre_settle; // 昨日结算价
     public Double open_interest; // 持仓量
     // 添加无参构造函数
-    public FutureBar() {
+    public FutureBarDay() {
     }
 
-    public FutureBar(String symbol, LocalDate tradeDate, LocalTime tradeTime,
+    public FutureBarDay(String symbol, LocalDate tradeDate,
                     Double open, Double high, Double low, Double close, Double volume, Double pre_settle, Double open_interest){
-        super(symbol, tradeDate, tradeTime, open, high, low, close, volume);
+        super(symbol, tradeDate, LocalTime.of(15,0,0), open, high, low, close, volume);
         this.pre_settle = pre_settle;
         this.open_interest = open_interest;
     }
-
-
 }

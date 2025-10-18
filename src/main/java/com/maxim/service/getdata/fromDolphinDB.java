@@ -11,6 +11,7 @@ import com.maxim.service.struct.StockInfoStruct;
 // 工具模块
 import java.io.IOException;
 import java.lang.Void;
+import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -49,7 +50,7 @@ public class fromDolphinDB{
     // DolphinDB -> BasicTable -> JavaBean
     // Step1. DolphinDB -> ConcurrentHashMap<LocalDate, BasicTable>
     public ConcurrentHashMap<LocalDate, BasicTable> toBasicTable(LocalDate start_date, LocalDate end_date, Collection<String> symbol_list,
-                                                                 String timeCol, Boolean isTimeStampCol, String symbolCol, String...featureCols) throws IOException {
+                                                                 String dateCol, String timeCol, Boolean isTimeStampCol, String symbolCol, String...featureCols) throws IOException {
         /*
         * 将DolphinDB数据转换为BasicTable
         * 输入: DolphinDB连接, 数据库名, 表名, 起始时间, 结束时间, 标的列表, 时间列, 标的列, 特征列...
@@ -57,8 +58,8 @@ public class fromDolphinDB{
         * 注: 这里目前只能有一个时间列+一个symbol列去做范围限制,时间列必传,标的列可不传
         * */
         // 获取SQL脚本 & 时间信息
-        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, timeCol);
-        String[] script = toBasicTableScriptUtil(symbol_list, timeCol, isTimeStampCol, symbolCol, featureCols);
+        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, dateCol);
+        String[] script = toBasicTableScriptUtil2(symbol_list, dateCol, timeCol, isTimeStampCol, symbolCol, featureCols);
         String script1 = script[0];
         String script3 = script[1];
 
@@ -69,9 +70,7 @@ public class fromDolphinDB{
         for (int i=0; i<date_list.rows(); i++){  // 注: DolphinDB的JavaAPI向量/Table全部都是用rows获取维度的
             LocalDate tradeDate = date_list.getDate(i);
             String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-            String script2 = """ 
-                from loadTable("%s","%s") where date(%s) == date(%s)
-                """.formatted(this.dbName, this.tbName, timeCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+            String script2 = toBasicTableScriptUtil(tradeDate, dateCol, timeCol, isTimeStampCol);
             String finalScript = script1+script2+script3; // 这里要写在外边
 
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -94,15 +93,15 @@ public class fromDolphinDB{
     }
 
     public ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> toBasicTableBySymbol(LocalDate start_date, LocalDate end_date, Collection<String> symbol_list,
-                                                                                  String timeCol, Boolean isTimeStampCol, String symbolCol, String...featureCols) throws IOException {
+                                                                                  String dateCol, String timeCol, Boolean isTimeStampCol, String symbolCol, String...featureCols) throws IOException {
         /*
          * 将DolphinDB数据转换为BasicTable, 同时每个日期内部按照标的进行分组(HashMap)
          * 输入: DolphinDB连接, 数据库名, 表名, 起始时间, 结束时间, 标的列表, 时间列, 标的列, 特征列...
          * 输出: ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>>
          * */
         // 获取SQL脚本 & 时间信息
-        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, timeCol);
-        String[] script = toBasicTableScriptUtil(symbol_list, timeCol, isTimeStampCol, symbolCol, featureCols);
+        BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, dateCol);
+        String[] script = toBasicTableScriptUtil2(symbol_list, dateCol, timeCol, isTimeStampCol, symbolCol, featureCols);
         String script1 = script[0];
         String script3 = script[1];
 
@@ -112,10 +111,7 @@ public class fromDolphinDB{
 
         for (int i=0; i<date_list.rows(); i++){  // 注: DolphinDB的JavaAPI向量/Table全部都是用rows获取维度的
             LocalDate tradeDate = date_list.getDate(i);
-            String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-            String script2 = """ 
-                from loadTable("%s","%s") where date(%s) == date(%s)
-                """.formatted(this.dbName, this.tbName, timeCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+            String script2 = toBasicTableScriptUtil(tradeDate, dateCol, timeCol, isTimeStampCol);
             String finalScript = script1+script2+script3; // 这里要写在外边
 
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -164,7 +160,7 @@ public class fromDolphinDB{
          * */
         // 获取SQL脚本 & 时间信息
         BasicDateVector date_list = toBasicTableDateUtil(start_date, end_date, dateCol);
-        String[] script = toBasicTableScriptUtil(symbol_list, dateCol, false, symbolCol, featureCols);  // 这里因为用到这个方法的场景对应的数据是一定是有分钟列的
+        String[] script = toBasicTableScriptUtil2(symbol_list, dateCol, timeCol, false, symbolCol, featureCols);  // 这里因为用到这个方法的场景对应的数据是一定是有分钟列的
         String script1 = script[0];
         String script3 = script[1];
 
@@ -175,9 +171,7 @@ public class fromDolphinDB{
         for (int i=0; i<date_list.rows(); i++){  // 注: DolphinDB的JavaAPI向量/Table全部都是用rows获取维度的
             LocalDate tradeDate = date_list.getDate(i);
             String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-            String script2 = """ 
-                from loadTable("%s","%s") where date(%s) == date(%s)
-                """.formatted(this.dbName, this.tbName, dateCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+            String script2 = toBasicTableScriptUtil(tradeDate, dateCol, timeCol, false); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
             String finalScript = script1+script2+script3; // 这里要写在外边
 
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
@@ -478,7 +472,8 @@ public class fromDolphinDB{
     }
 
     /*工具方法*/
-    public String[] toBasicTableScriptUtil(Collection<String> symbol_list, String timeCol, Boolean isTimestampCol, String symbolCol, String...featureCols){
+    public String[] toBasicTableScriptUtil2(Collection<String> symbol_list, String dateCol, String timeCol, Boolean isTimestampCol, String symbolCol,
+                                           String...featureCols){
         /* 生成SQL字符串的逻辑
          * 转换字符串为DolphinDB List str, 并拼接SQL脚本
          * isTimeStampCol: 表示输入的timeCol是否为时间戳列
@@ -491,7 +486,11 @@ public class fromDolphinDB{
         String script1;
         String feature_list_str = Utils.arrayToDolphinDBStrSplit(List.of(featureCols));  // 这里用List.of(),将String[]转换为Collection<String>
         if (!isTimestampCol){ // 说明是日期列+分钟列的组合<推荐, 棒棒哒>
-            script1 = "select %s,%s,%s ".formatted(symbolCol, timeCol, feature_list_str);
+            if (timeCol != null){
+                script1 = "select %s,%s,%s,%s ".formatted(symbolCol, dateCol, timeCol, feature_list_str);
+            }else {
+                script1 = "select %s,%s,%s ".formatted(symbolCol, dateCol, feature_list_str);
+            }
             System.out.println("featureList: " + feature_list_str);
         }else{ // 拆成日期列TradeDate+分钟列TradeTime
             script1 = "select %s, %s.date() as `TradeDate, %s.time() as `TradeTime,%s ".formatted(symbolCol, timeCol, timeCol, feature_list_str);
@@ -506,10 +505,27 @@ public class fromDolphinDB{
             script3 = "";
             System.out.println("symbolList: null");
         }
+
         return new String[]{script1, script3};
     }
 
-    public BasicDateVector toBasicTableDateUtil(LocalDate start_date, LocalDate end_date, String timeCol) throws IOException {
+    public String toBasicTableScriptUtil(LocalDate tradeDate, String dateCol, String timeCol, boolean isTimeStampCol){
+        String script2;
+        String tradeDateStr = tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+        if (isTimeStampCol){
+            script2 = """ 
+                from loadTable("%s","%s") where date(%s) == date(%s)
+                """.formatted(this.dbName, this.tbName, timeCol, tradeDateStr); // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+        }else{
+            script2 = """ 
+                from loadTable("%s","%s") where %s == date(%s)
+                """.formatted(this.dbName, this.tbName, dateCol, tradeDateStr);
+        } // 这里要将ISO标准时间转换为2020.01.01这样的dotType
+        return script2;
+    }
+
+
+    public BasicDateVector toBasicTableDateUtil(LocalDate start_date, LocalDate end_date, String dateCol) throws IOException {
         // LocalDate -> String Dot
         String startDotDate = start_date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
         String endDotDate = end_date.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
@@ -517,7 +533,7 @@ public class fromDolphinDB{
         BasicDateVector date_list = (BasicDateVector) conn.run("""
                 t = select count(*) as count from loadTable("%s", "%s") where date(%s) between date(%s) and date(%s) group by date(%s) as %s; 
                 exec %s from t
-                """.formatted(this.dbName, this.tbName, timeCol, startDotDate, endDotDate, timeCol, timeCol, timeCol));
+                """.formatted(this.dbName, this.tbName, dateCol, startDotDate, endDotDate, dateCol, dateCol, dateCol));
         System.out.println("dateList: " + date_list.getString());
         return date_list;
     }
@@ -526,29 +542,35 @@ public class fromDolphinDB{
     // 利用DolphinDB 中的类型反射设置JavaBean属性
     // 辅助方法：使用反射设置JavaBean属性
     private void setBeanField(Object instance, String fieldName, Entity columnData) throws Exception {
-    Class<?> clazz = instance.getClass();
+        Class<?> clazz = instance.getClass();
+        java.lang.reflect.Field field = null;
 
-    // 查找字段
-    java.lang.reflect.Field field = null;
-    try {
-        field = clazz.getDeclaredField(fieldName);
-        field.setAccessible(true);
-    } catch (NoSuchFieldException e) {
-        // 如果找不到字段，尝试通过setter方法
-        handleWithSetter(clazz, instance, fieldName, columnData);
-        return;
+        // 在类层次结构中查找字段 [以支持继承关系]
+        Class<?> searchClass = clazz;
+        while (searchClass != null && searchClass != Object.class) {
+            try {
+                field = searchClass.getDeclaredField(fieldName);
+                break;
+            } catch (NoSuchFieldException e) {
+                searchClass = searchClass.getSuperclass();
+            }
+        }
+
+        if (field == null) {
+            handleWithSetter(clazz, instance, fieldName, columnData);
+            return;
+        }
+
+        // 获取目标字段类型并进行类型转换
+        Class<?> fieldType = field.getType();
+        Object value = convertToFieldType(columnData, fieldType);
+
+        try {
+            field.set(instance, value);
+        } catch (IllegalArgumentException e) {
+            System.err.println("Warning: Cannot set field '" + fieldName + "' to field type " + fieldType.getSimpleName());
+        }
     }
-
-    // 获取目标字段类型并进行类型转换
-    Class<?> fieldType = field.getType();
-    Object value = convertToFieldType(columnData, fieldType);
-
-    try {
-        field.set(instance, value);
-    } catch (IllegalArgumentException e) {
-        System.err.println("Warning: Cannot set field '" + fieldName + "' to field type " + fieldType.getSimpleName());
-    }
-}
 
     private Object convertToFieldType(Entity entity, Class<?> fieldType) {
         try {
@@ -623,6 +645,7 @@ public class fromDolphinDB{
     private void handleWithSetter(Class<?> clazz, Object instance, String fieldName, Entity columnData) {
         // 简化处理setter方法
         System.err.println("Setter method handling not implemented for field: " + fieldName);
+        // TODO: 完善setter方法处理逻辑
     }
 
 }

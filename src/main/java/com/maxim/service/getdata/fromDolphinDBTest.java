@@ -42,21 +42,21 @@ public class fromDolphinDBTest {
                 LocalDate.parse("2023.02.01", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                 LocalDate.parse("2023.02.03", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                 List.of(symbol_list),
-                "tradeDate", false,"code", "tradeTime","open", "high", "low", "close", "volume");
+                "tradeDate",null, false,"code", "tradeTime","open", "high", "low", "close", "volume");
 
         // toBasicTable2, 将一天的所有数据按照标的进行分组, 转成BasicTable的集合
         ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> dataMap2 = test.toBasicTableBySymbol(
                 LocalDate.parse("2023.02.01", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                 LocalDate.parse("2023.02.03", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                 List.of(symbol_list),
-                "tradeDate", false,"code", "tradeTime","open", "high", "low", "close", "volume");
+                "tradeDate", null, false,"code", "tradeTime","open", "high", "low", "close", "volume");
 
         // toBasicTable3, 将一天所有数据按照时间进行分组, 转成BasicTable的集合
         ConcurrentHashMap<LocalDate, TreeMap<LocalTime, BasicTable>> dataMap3 = test.toBasicTableByTime(
                 LocalDate.parse("2023.02.01", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                 LocalDate.parse("2023.02.03", DateTimeFormatter.ofPattern("yyyy.MM.dd")),
                 List.of(symbol_list),
-                "tradeDate", "tradeTime","code", "tradeTime","open", "high", "low", "close", "volume");
+                "tradeDate", null,"code", "tradeTime","open", "high", "low", "close", "volume");
         for (LocalDate date: dataMap3.keySet()){
             TreeMap<LocalTime, BasicTable> timeMap = dataMap3.get(date);
             System.out.println(timeMap.keySet());
