@@ -3,9 +3,11 @@ package com.maxim.service.getdata;
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
 // 工具模块
+import java.io.File;
 import java.io.IOException;
 import java.lang.Void;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -74,7 +76,7 @@ public class fromJson {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 try {
                     String strJson = new String(
-                            Files.readAllBytes(Paths.get(fileName)));
+                            Files.readAllBytes(Path.of(filePath + File.separator + Paths.get(fileName))));
                     T object = JSON.parseObject(strJson, clazz);
                     resultMap.put(finalDate, object);
                 } catch (IOException e) {

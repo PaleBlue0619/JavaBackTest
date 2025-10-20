@@ -27,7 +27,8 @@ public class DataPrepare {
 //            transMap.put(featureName.get(i), structName.get(i));
 //        }
         // Case-1 股票K线异步多线程保存json
-        loader.KBarToJsonAsync(AssetType.STOCK, DataFreq.MINUTE,"dfs://MinKDB", "Min1K", "tradeDate", "tradeTime", "code",
+        loader.KBarToJsonAsync(AssetType.STOCK, DataFreq.MINUTE,"dfs://MinKDB", "Min1K",
+                "tradeDate", "tradeTime", "code",
                 new HashMap<String, String>() {{ // 映射关系: DolphinDB -> JavaBean
                     put("code", "symbol");
                     put("tradeDate", "tradeDate");
