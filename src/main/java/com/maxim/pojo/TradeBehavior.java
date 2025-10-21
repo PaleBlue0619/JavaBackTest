@@ -3,11 +3,9 @@ package com.maxim.pojo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maxim.pojo.BackTestConfig;
+import com.maxim.pojo.emun.OrderDirection;
 import com.maxim.pojo.info.FutureInfo;
-import com.maxim.pojo.order.FutureCloseOrder;
-import com.maxim.pojo.order.FutureOpenOrder;
-import com.maxim.pojo.order.StockOpenOrder;
-import com.maxim.pojo.order.StockCloseOrder;
+import com.maxim.pojo.order.*;
 import com.xxdb.DBConnection;
 
 import java.text.ParseException;
@@ -19,7 +17,7 @@ import java.time.*;
 import java.util.LinkedHashMap;
 
 public class TradeBehavior {
-    public static void orderOpenStock(String symbol, Double vol, Double price,
+    public static void orderOpenStock(String symbol, Integer vol, Double price,
                                       Double static_profit, Double static_loss,
                                       Double dynamic_profit, Double dynamic_loss,
                                       LocalDateTime min_timestamp, LocalDateTime max_timestamp,
@@ -96,7 +94,7 @@ public class TradeBehavior {
         }
     }
 
-    public static void orderCloseStock(String symbol, Double vol, Double price,
+    public static void orderCloseStock(String symbol, Integer vol, Double price,
                                        LocalDateTime min_order_timestamp,
                                        LocalDateTime max_order_timestamp,
                                        String reason, Boolean partialOrder){
@@ -135,7 +133,7 @@ public class TradeBehavior {
         }
     }
 
-    public static void orderOpenFuture(String order_type, String symbol, Double vol, Double price,
+    public static void orderOpenFuture(OrderDirection direction, String symbol, Integer vol, Double price,
                                        Double static_profit, Double static_loss,
                                        Double dynamic_profit, Double dynamic_loss,
                                        LocalDateTime min_timestamp, LocalDateTime max_timestamp,
@@ -143,7 +141,7 @@ public class TradeBehavior {
                                        Double commission, String reason, Boolean partialOrder){
         /*
         【盘中运行】期货订单发送至future_counter
-        order_type: 订单类型
+        direction: 订单方向
         symbol: 期货代码
         vol: 订单数量
         price: 订单价格
@@ -186,7 +184,7 @@ public class TradeBehavior {
 
         // 创建订单对象
         FutureOpenOrder order = new FutureOpenOrder(
-                order_type,
+                direction,
                 symbol,
                 vol,
                 price,
@@ -212,7 +210,7 @@ public class TradeBehavior {
         }
     }
 
-    public static void orderCloseFuture(String order_type, String symbol, Double vol, Double price,
+    public static void orderCloseFuture(OrderDirection direction, String symbol, Integer vol, Double price,
                                         LocalDateTime min_order_timestamp,
                                         LocalDateTime max_order_timestamp,
                                         String reason, Boolean partialOrder){
@@ -233,7 +231,7 @@ public class TradeBehavior {
         }
 
         FutureCloseOrder order = new FutureCloseOrder(
-                order_type,
+                direction,
                 symbol,
                 vol,
                 price,

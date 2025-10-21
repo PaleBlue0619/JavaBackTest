@@ -9,7 +9,7 @@ public class FutureBar extends KBar{
     }
 
     public FutureBar(String symbol, LocalDate tradeDate, LocalTime tradeTime,
-                    Double open, Double high, Double low, Double close, Double volume, Double pre_settle, Double open_interest){
+                    Double open, Double high, Double low, Double close, Integer volume, Double pre_settle, Double open_interest){
         super(symbol, tradeDate, tradeTime, open, high, low, close, volume);
         this.pre_settle = pre_settle;
         this.open_interest = open_interest;

@@ -19,7 +19,7 @@ public class StockPosition extends Position {
     public Double history_max;
     public Double history_min;
 
-    public StockPosition(Double price, Double vol,
+    public StockPosition(Double price, Integer vol,
                          LocalDateTime min_timestamp, LocalDateTime max_timestamp,
                          Double static_profit, Double static_loss,
                          Double dynamic_profit, Double dynamic_loss) {

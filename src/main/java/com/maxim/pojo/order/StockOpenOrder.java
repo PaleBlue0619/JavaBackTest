@@ -1,9 +1,13 @@
 package com.maxim.pojo.order;
+import com.maxim.pojo.emun.OrderDirection;
+import com.maxim.pojo.emun.OrderType;
+
 import java.time.*;
 
 // 订单对象
 public class StockOpenOrder extends StockOrder {
-    private final static String ORDER_STATE = "open";
+    private final static OrderType ORDER_TYPE = OrderType.OPEN;
+    private static final OrderDirection ORDER_DIRECTION = OrderDirection.LONG;  // A股特性,禁止做空
     public LocalDateTime min_timestamp;
     public LocalDateTime max_timestamp;
     public Double static_profit;
@@ -12,13 +16,13 @@ public class StockOpenOrder extends StockOrder {
     public Double dynamic_loss;
     public Double commission;
 
-    public StockOpenOrder(String symbol, Double vol, Double price,
+    public StockOpenOrder(String symbol, Integer vol, Double price,
                           LocalDate create_date, LocalDateTime create_timestamp, LocalDateTime min_timestamp, LocalDateTime max_timestamp,
                           LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp,
                           Double static_profit, Double static_loss, Double dynamic_profit,
                           Double dynamic_loss, Double commission, String reason, Boolean partialOrder) {
         super(symbol, vol, price, create_date, create_timestamp, min_order_timestamp, max_order_timestamp, reason);
-        this.order_state = ORDER_STATE;
+        this.order_type = ORDER_TYPE;
         this.partialOrder = partialOrder;
         this.min_timestamp = min_timestamp;
         this.max_timestamp = max_timestamp;

@@ -2,6 +2,7 @@ package com.maxim.service;
 import com.xxdb.data.BasicTable;
 
 import java.io.File;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,28 +61,27 @@ public class Utils{
                 .collect(Collectors.joining(","));
     }
 
-    public static ArrayList<Integer> getMinuteList(String marketType) {
-        ArrayList<Integer> minute_list = new ArrayList<>();
+    public static ArrayList<LocalTime> getMinuteList(String marketType) {
+        ArrayList<LocalTime> minute_list = new ArrayList<>();
         if (marketType.toLowerCase().equals("sse") || marketType.toLowerCase().equals("szse")) {
             // 添加上午交易时间 9:30-11:30
             for (int hour = 9; hour <= 11; hour++) {
                 int startMinute = (hour == 9) ? 30 : 0;
                 int endMinute = (hour == 11) ? 30 : 59;
-
                 for (int minute = startMinute; minute <= endMinute; minute++) {
-                    minute_list.add(hour * 100 + minute);
+                    minute_list.add(LocalTime.of(hour,minute));
                 }
             }
 
             // 添加下午交易时间 13:00-15:00
             for (int hour = 13; hour < 15; hour++) {
                 for (int minute = 0; minute <= 59; minute++) {
-                    minute_list.add(hour * 100 + minute);
+                    minute_list.add(LocalTime.of(hour,minute));
                 }
             }
 
             // 单独添加15:00
-            minute_list.add(1500);
+            minute_list.add(LocalTime.of(15, 0));
 
         }
         return minute_list;

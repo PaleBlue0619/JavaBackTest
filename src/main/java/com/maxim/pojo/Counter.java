@@ -1,4 +1,5 @@
 package com.maxim.pojo;
+import com.maxim.pojo.emun.OrderType;
 import com.maxim.pojo.kbar.StockBar;
 import com.maxim.pojo.order.StockOpenOrder;
 import com.maxim.pojo.order.StockOrder;
@@ -23,7 +24,7 @@ public class Counter extends CounterBehavior{
         // 获取当前配置实例
         BackTestConfig config = BackTestConfig.getInstance();
         LocalDate date = config.currentDate;
-        Integer minute = config.currentMinute;
+        LocalTime minute = config.currentMinute;
         LocalDateTime current_timestamp = config.currentTimeStamp;
         LinkedHashMap<Integer, StockOrder> stockCounter = config.getStockCounter();
 
@@ -39,17 +40,17 @@ public class Counter extends CounterBehavior{
         for (Integer order_id: stockCounter.keySet()){
             StockOrder order_obj = stockCounter.get(order_id);
             // 获取当前订单对象的属性值
-            String order_state = order_obj.order_state;
+            OrderType order_type = order_obj.order_type;
             String symbol = order_obj.symbol;
             Double price = order_obj.price;
-            Double vol = order_obj.vol;
+            Integer vol = order_obj.vol;
             LocalDateTime min_order_timestamp = order_obj.min_order_timestamp;
             LocalDateTime max_order_timestamp = order_obj.max_order_timestamp;
 
             if (max_order_timestamp.isEqual(current_timestamp) || max_order_timestamp.isBefore(current_timestamp)){
                 delete_ids.add(order_id); // 记录需要删除的订单id
                 // config.stockCounter.remove(order_id); // 直接在全局配置实例项中删除对应的股票订单
-                System.out.println("OrderNum"+order_id+"Bahavior"+order_state+"-symbol:"+symbol+"price"+price+"vol"+vol+"failed[Out of Timestamp]");
+                System.out.println("OrderNum"+order_id+"Bahavior"+order_type+"-symbol:"+symbol+"price"+price+"vol"+vol+"failed[Out of Timestamp]");
                 
             } else if (current_timestamp.isEqual(min_order_timestamp) || current_timestamp.isAfter(min_order_timestamp)) {
                 Double low = null;
@@ -64,13 +65,13 @@ public class Counter extends CounterBehavior{
                 if (low!=null && high!=null){
                     // 说明这根K线上有该股票的数据
                     if (low<=price && price<=high){ // 说明可以成交
-                        if (Objects.equals(order_state, "open")){
+                        if (order_type.equals(OrderType.OPEN)){
                             CounterBehavior.executeStock(symbol, price, vol,
                                     order_obj.static_profit, order_obj.static_loss,
                                     order_obj.dynamic_profit, order_obj.dynamic_loss,
                                     min_order_timestamp, max_order_timestamp,
                                     order_obj.reason);
-                        } else if (Objects.equals(order_state, "close")) {
+                        } else if (order_type.equals(OrderType.CLOSE)) {
                             CounterBehavior.closeStock(symbol, price, vol, order_obj.reason);
                         }
                         delete_ids.add(order_id); // 记录需要删除的订单id
@@ -97,7 +98,7 @@ public class Counter extends CounterBehavior{
         // 获取当前配置实例
         BackTestConfig config = BackTestConfig.getInstance();
         LocalDate date = config.currentDate;
-        Integer minute = config.currentMinute;
+        LocalTime minute = config.currentMinute;
         LocalDateTime current_timestamp = config.currentTimeStamp;
         LinkedHashMap<Integer, StockOrder> stockCounter = config.getStockCounter();
 
@@ -112,20 +113,20 @@ public class Counter extends CounterBehavior{
         for (Integer order_id: stockCounter.keySet()){
             StockOrder order_obj = stockCounter.get(order_id);
             // 获取当前订单对象的属性值
-            String order_state = order_obj.order_state;
+            OrderType order_type = order_obj.order_type;
             String symbol = order_obj.symbol;
             Double price = order_obj.price;
-            Double vol = order_obj.vol;
+            Integer vol = order_obj.vol;
             LocalDateTime min_order_timestamp = order_obj.min_order_timestamp;
             LocalDateTime max_order_timestamp = order_obj.max_order_timestamp;
             if (max_order_timestamp.isEqual(current_timestamp) || max_order_timestamp.isBefore(current_timestamp)){
                 delete_ids.add(order_id); // 记录需要删除的订单id
-                System.out.println("OrderNum"+order_id+"Bahavior"+order_state+"-symbol:"+symbol+"price"+price+"vol"+vol+"failed[Out of Timestamp]");
+                System.out.println("OrderNum"+order_id+"Bahavior"+order_type+"-symbol:"+symbol+"price"+price+"vol"+vol+"failed[Out of Timestamp]");
             } else if (current_timestamp.isEqual(min_order_timestamp) || current_timestamp.isAfter(min_order_timestamp)){
                 Double low = null;
                 Double high = null;
                 Double close = null;
-                Double volume = null;
+                Integer volume = null;
                 // 获取当前K线对象
                 if (stock_k_dict.containsKey(symbol)){
                     StockBar kBar = stock_k_dict.get(symbol);
@@ -141,9 +142,9 @@ public class Counter extends CounterBehavior{
                         price = close; // 说明是部分成交的订单, 第一次成交按照挂单价进行成交
                     }
                     if (low<=price && price<=high){
-                        if (Objects.equals(order_state, "open")){ // 开仓订单
+                        if (order_type.equals(OrderType.OPEN)){ // 开仓订单
                             StockOpenOrder open_order = (StockOpenOrder) order_obj; // 强制类型转换为子类以获取更多属性
-                            Double openVolThreshold = (open_share_threshold * volume);
+                            Integer openVolThreshold = (int) (open_share_threshold * volume); // 这里取整
                             if (vol <= openVolThreshold){
                                 delete_ids.add(order_id);
                                 // config.stockCounter.remove(order_id);  // 删除柜台的订单
@@ -159,9 +160,9 @@ public class Counter extends CounterBehavior{
                                         open_order.min_timestamp, open_order.max_timestamp,
                                         open_order.reason);
                             }
-                        }else if(Objects.equals(order_state, "close")){ // 平仓订单
+                        }else if(order_type.equals(OrderType.CLOSE)){ // 平仓订单
                             // StockCloseOrder close_order = (StockCloseOrder) order_obj; // 强制类型转换为子类以获取更多属性
-                            Double closeVolThreshold = (close_share_threshold * volume);
+                            Integer closeVolThreshold = (int) (close_share_threshold * volume);
                             if (vol <= closeVolThreshold){
                                 delete_ids.add(order_id);
                                 // config.stockCounter.remove(order_id); // 删除柜台的订单

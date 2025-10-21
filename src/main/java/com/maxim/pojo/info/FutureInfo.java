@@ -13,5 +13,6 @@ public class FutureInfo extends Info{
         super(tradeDate, symbol, open, high, low, close, start_date, end_date);
         this.pre_settle = pre_settle;
         this.settle = settle;
+        this.margin_rate = margin_rate;
     }
 }

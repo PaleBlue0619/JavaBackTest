@@ -47,7 +47,7 @@ public class BackTestConfig {
     Collection<String> dotDateList = new ArrayList<>(); // "2024.01.01"
     Collection<String> strDateList = new ArrayList<>(); // "20240101"
     LocalDate currentDate;
-    Integer currentMinute = 915;
+    LocalTime currentMinute = LocalTime.of(9, 15);
     LocalDateTime currentTimeStamp;
     String currentStrDate; // 20240101
     String currentDotDate; // 2024.01.01
@@ -69,7 +69,7 @@ public class BackTestConfig {
     // 股票类-基本信息
     Collection<LocalDate> stockDateList = new ArrayList<>();  // 股票标的的回测时间(天)
     Collection<LocalTime> stockTimeList = new ArrayList<>();   // 股票标的的回测时间(每天中的分钟)
-    TreeMap<Integer, HashMap<String, StockBar>> stockKDict = new TreeMap<>(); // stock_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
+    TreeMap<LocalTime, HashMap<String, StockBar>> stockKDict = new TreeMap<>(); // stock_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
     HashMap<String, StockInfo> stockInfoDict = new HashMap<>(); // stock_info_dict -> symbol -> OHLC+startDate/endDate Info
     LinkedHashMap stockSignalDict = new LinkedHashMap<>();
     LinkedHashMap stockMacroDict = new LinkedHashMap<>();
@@ -85,7 +85,7 @@ public class BackTestConfig {
     // 期货类-基本信息
     Collection<LocalDate> futureDateList = new ArrayList<>();  // 股票标的的回测时间(天)
     Collection<LocalTime> futureTimeList = new ArrayList<>();   // 股票标的的回测时间(每天中的分钟)
-    TreeMap<Integer, HashMap<String, FutureBar>> futureKDict = new TreeMap<>(); // future_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
+    TreeMap<LocalTime, HashMap<String, FutureBar>> futureKDict = new TreeMap<>(); // future_k_dict -> minute -> symbol -> OHLC KBAR(MinFreq)
     HashMap<String, FutureInfo> futureInfoDict = new HashMap<>();
     LinkedHashMap futureSignalDict = new LinkedHashMap<>();
     LinkedHashMap futureMacroDict = new LinkedHashMap<>();
@@ -232,6 +232,9 @@ public class BackTestConfig {
         // 设置初始现金
         this.cash = config.getCash() != null ? config.getCash() : 10000000.0;
         this.oriCash = this.cash;
+        this.stockCash = config.getStockCash() != null ? config.getStockCash() : 0.0;
+        this.futureCash = config.getFutureCash() != null ? config.getFutureCash() : 0.0;
+        this.optionCash = config.getOptionCash() != null ? config.getOptionCash() : 0.0;
 
         // 默认初始化
         BackTestConfigInit();
@@ -256,305 +259,35 @@ public class BackTestConfig {
         }
     }
 
-    // 提供获取Config对象的方法，以便其他类可以访问原始配置
-    public Config getConfig() {
-        return this.config;
-    }
-
-    public String getUSERNAME() {
-        return USERNAME;
-    }
-
-    public void setUSERNAME(String USERNAME) {
-        this.USERNAME = USERNAME;
-    }
-
-    public static void setInstance(BackTestConfig instance) {
-        BackTestConfig.instance = instance;
-    }
-
-    public SimpleDateFormat getSdf() {
-        return sdf;
-    }
-
-    public void setSdf(SimpleDateFormat sdf) {
-        this.sdf = sdf;
-    }
-
-    public DateTimeFormatter getFormatter() {
-        return formatter;
-    }
-
-    public void setFormatter(DateTimeFormatter formatter) {
-        this.formatter = formatter;
-    }
-
-    public DateTimeFormatter getFormatter_dot() {
-        return formatter_dot;
-    }
-
-    public void setFormatter_dot(DateTimeFormatter formatter_dot) {
-        this.formatter_dot = formatter_dot;
-    }
-
-    public DBConnection getSession() {
-        return session;
-    }
-
-    public void setSession(DBConnection session) {
-        this.session = session;
-    }
-
-    public void setConfig(Config config) {
-        this.config = config;
-    }
-
-    public String getHOST() {
-        return HOST;
-    }
-
-    public void setHOST(String HOST) {
-        this.HOST = HOST;
-    }
-
-    public int getPORT() {
-        return PORT;
-    }
-
-    public void setPORT(int PORT) {
-        this.PORT = PORT;
-    }
-
-    public String getPASSWORD() {
-        return PASSWORD;
-    }
-
-    public void setPASSWORD(String PASSWORD) {
-        this.PASSWORD = PASSWORD;
-    }
-
-    public Collection<LocalDate> getDateList() {
-        return dateList;
-    }
-
-    public void setDateList(Collection<LocalDate> dateList) {
-        this.dateList = dateList;
-    }
-
-    public Collection<String> getDotDateList() {
-        return dotDateList;
-    }
-
-    public void setDotDateList(Collection<String> dotDateList) {
-        this.dotDateList = dotDateList;
-    }
-
-    public Collection<String> getStrDateList() {
-        return strDateList;
-    }
-
-    public void setStrDateList(Collection<String> strDateList) {
-        this.strDateList = strDateList;
-    }
-
     public LocalDate getCurrentDate() {
         return currentDate;
     }
 
     public void setCurrentDate(LocalDate currentDate) {
         this.currentDate = currentDate;
+        this.currentDotDate = currentDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+        this.currentStrDate = currentDate.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
     }
 
-    public Integer getCurrentMinute() {
+    public LocalTime getCurrentMinute() {
         return currentMinute;
     }
 
-    public void setCurrentMinute(Integer currentMinute) {
+    public void setCurrentMinute(LocalTime currentMinute) {
         this.currentMinute = currentMinute;
+        this.currentTimeStamp = LocalDateTime.of(currentDate, currentMinute);
     }
 
     public LocalDateTime getCurrentTimeStamp() {
         return currentTimeStamp;
     }
 
-    public void setCurrentTimeStamp(LocalDateTime currentTimeStamp) {
-        this.currentTimeStamp = currentTimeStamp;
-    }
-
-    public String getCurrentStrDate() {
-        return currentStrDate;
-    }
-
-    public void setCurrentStrDate(String currentStrDate) {
-        this.currentStrDate = currentStrDate;
-    }
-
-    public String getCurrentDotDate() {
-        return currentDotDate;
-    }
-
-    public void setCurrentDotDate(String currentDotDate) {
-        this.currentDotDate = currentDotDate;
-    }
-
-    public String getStartDotDate() {
-        return startDotDate;
-    }
-
-    public void setStartDotDate(String startDotDate) {
-        this.startDotDate = startDotDate;
-    }
-
-    public String getEndDotDate() {
-        return endDotDate;
-    }
-
-    public void setEndDotDate(String endDotDate) {
-        this.endDotDate = endDotDate;
-    }
-
-    public Integer getOrderNum() {
-        return orderNum;
-    }
-
-    public void setOrderNum(Integer orderNum) {
-        this.orderNum = orderNum;
-    }
-
-    public Boolean getRunStock() {
-        return runStock;
-    }
-
-    public void setRunStock(Boolean runStock) {
-        this.runStock = runStock;
-    }
-
-    public Boolean getRunFuture() {
-        return runFuture;
-    }
-
-    public void setRunFuture(Boolean runFuture) {
-        this.runFuture = runFuture;
-    }
-
-    public Boolean getRunOption() {
-        return runOption;
-    }
-
-    public void setRunOption(Boolean runOption) {
-        this.runOption = runOption;
-    }
-
-    public String getStockCounterJson() {
-        return stockCounterJson;
-    }
-
-    public void setStockCounterJson(String stockCounterJson) {
-        this.stockCounterJson = stockCounterJson;
-    }
-
-    public TreeMap<Integer, HashMap<String, StockBar>> getStockKDict() {
+    public TreeMap<LocalTime, HashMap<String, StockBar>> getStockKDict() {
         return stockKDict;
     }
 
-    public void setStockKDict(TreeMap<Integer, HashMap<String, StockBar>> stockKDict) {
+    public void setStockKDict(TreeMap<LocalTime, HashMap<String, StockBar>> stockKDict) {
         this.stockKDict = stockKDict;
-    }
-
-    public LinkedHashMap getStockMacroDict() {
-        return stockMacroDict;
-    }
-
-    public void setStockMacroDict(LinkedHashMap stockMacroDict) {
-        this.stockMacroDict = stockMacroDict;
-    }
-
-    public HashMap<String, StockInfo> getStockInfoDict() {
-        return stockInfoDict;
-    }
-
-    public void setStockInfoDict(HashMap<String, StockInfo> stockInfoDict) {
-        this.stockInfoDict = stockInfoDict;
-    }
-
-    public LinkedHashMap getStockSignalDict() {
-        return stockSignalDict;
-    }
-
-    public void setStockSignalDict(LinkedHashMap stockSignalDict) {
-        this.stockSignalDict = stockSignalDict;
-    }
-
-    public Collection<LocalTime> getStockTimeList() {
-        return stockTimeList;
-    }
-
-    public void setStockTimeList(Collection<LocalTime> stockTimeList) {
-        this.stockTimeList = stockTimeList;
-    }
-
-    public Collection<LocalDate> getStockDateList() {
-        return stockDateList;
-    }
-
-    public void setStockDateList(Collection<LocalDate> stockDateList) {
-        this.stockDateList = stockDateList;
-    }
-
-    public Collection<String> getStockDotDateList() {
-        return stockDotDateList;
-    }
-
-    public void setStockDotDateList(Collection<String> stockDotDateList) {
-        this.stockDotDateList = stockDotDateList;
-    }
-
-    public Collection<String> getStockStrDateList() {
-        return stockStrDateList;
-    }
-
-    public void setStockStrDateList(Collection<String> stockStrDateList) {
-        this.stockStrDateList = stockStrDateList;
-    }
-
-    public String getStockKDataBase() {
-        return stockKDataBase;
-    }
-
-    public void setStockKDataBase(String stockKDataBase) {
-        this.stockKDataBase = stockKDataBase;
-    }
-
-    public String getStockKTable() {
-        return stockKTable;
-    }
-
-    public void setStockKTable(String stockKTable) {
-        this.stockKTable = stockKTable;
-    }
-
-    public String getStockMacroJson() {
-        return stockMacroJson;
-    }
-
-    public void setStockMacroJson(String stockMacroJson) {
-        this.stockMacroJson = stockMacroJson;
-    }
-
-    public String getStockInfoJson() {
-        return stockInfoJson;
-    }
-
-    public void setStockInfoJson(String stockInfoJson) {
-        this.stockInfoJson = stockInfoJson;
-    }
-
-    public String getStockSignalJson() {
-        return stockSignalJson;
-    }
-
-    public void setStockSignalJson(String stockSignalJson) {
-        this.stockSignalJson = stockSignalJson;
     }
 
     public LinkedHashMap<Integer, StockOrder> getStockCounter() {
@@ -578,56 +311,30 @@ public class BackTestConfig {
         return stockSummary;
     }
 
-    public void setStockSummary(HashMap<String, StockSummary> stockSummary) {
-        this.stockSummary = stockSummary;
-    }
 
     public Double getCash() {
         return cash;
     }
 
-    public void setCash(Double cash) {
-        this.cash = cash;
-    }
 
     public Double getOriCash() {
         return oriCash;
-    }
-
-    public void setOriCash(Double oriCash) {
-        this.oriCash = oriCash;
     }
 
     public Double getProfit() {
         return profit;
     }
 
-    public void setProfit(Double profit) {
-        this.profit = profit;
-    }
-
     public Double getProfitSettle() {
         return profitSettle;
-    }
-
-    public void setProfitSettle(Double profitSettle) {
-        this.profitSettle = profitSettle;
     }
 
     public LinkedHashMap<LocalDate, Double> getCashDict() {
         return cashDict;
     }
 
-    public void setCashDict(LinkedHashMap<LocalDate, Double> cashDict) {
-        this.cashDict = cashDict;
-    }
-
     public LinkedHashMap<LocalDate, Double> getProfitDict() {
         return profitDict;
-    }
-
-    public void setProfitDict(LinkedHashMap<LocalDate, Double> profitDict) {
-        this.profitDict = profitDict;
     }
 
     public LinkedHashMap<LocalDate, Double> getSettleProfitDict() {
@@ -640,10 +347,6 @@ public class BackTestConfig {
 
     public LinkedHashMap<LocalDate, Double> getPosDict() {
         return posDict;
-    }
-
-    public void setPosDict(LinkedHashMap<LocalDate, Double> posDict) {
-        this.posDict = posDict;
     }
 
     public Collection<Object> getStockOrderRecord() {
@@ -678,11 +381,11 @@ public class BackTestConfig {
         this.futureTimeList = futureTimeList;
     }
 
-    public TreeMap<Integer, HashMap<String, FutureBar>> getFutureKDict() {
+    public TreeMap<LocalTime, HashMap<String, FutureBar>> getFutureKDict() {
         return futureKDict;
     }
 
-    public void setFutureKDict(TreeMap<Integer, HashMap<String, FutureBar>> futureKDict) {
+    public void setFutureKDict(TreeMap<LocalTime, HashMap<String, FutureBar>> futureKDict) {
         this.futureKDict = futureKDict;
     }
 
@@ -690,100 +393,20 @@ public class BackTestConfig {
         return futureInfoDict;
     }
 
-    public void setFutureInfoDict(HashMap<String, FutureInfo> futureInfoDict) {
-        this.futureInfoDict = futureInfoDict;
-    }
-
-    public LinkedHashMap getFutureSignalDict() {
-        return futureSignalDict;
-    }
-
-    public void setFutureSignalDict(LinkedHashMap futureSignalDict) {
-        this.futureSignalDict = futureSignalDict;
-    }
-
-    public LinkedHashMap getFutureMacroDict() {
-        return futureMacroDict;
-    }
-
-    public void setFutureMacroDict(LinkedHashMap futureMacroDict) {
-        this.futureMacroDict = futureMacroDict;
-    }
-
     public Collection<String> getFutureDotDateList() {
         return futureDotDateList;
-    }
-
-    public void setFutureDotDateList(Collection<String> futureDotDateList) {
-        this.futureDotDateList = futureDotDateList;
-    }
-
-    public Collection<String> getFutureStrDateList() {
-        return futureStrDateList;
-    }
-
-    public void setFutureStrDateList(Collection<String> futureStrDateList) {
-        this.futureStrDateList = futureStrDateList;
-    }
-
-    public String getFutureKTable() {
-        return futureKTable;
-    }
-
-    public void setFutureKTable(String futureKTable) {
-        this.futureKTable = futureKTable;
-    }
-
-    public String getFutureMacroJson() {
-        return futureMacroJson;
-    }
-
-    public void setFutureMacroJson(String futureMacroJson) {
-        this.futureMacroJson = futureMacroJson;
-    }
-
-    public String getFutureInfoJson() {
-        return futureInfoJson;
-    }
-
-    public void setFutureInfoJson(String futureInfoJson) {
-        this.futureInfoJson = futureInfoJson;
-    }
-
-    public String getFutureSignalJson() {
-        return futureSignalJson;
-    }
-
-    public void setFutureSignalJson(String futureSignalJson) {
-        this.futureSignalJson = futureSignalJson;
     }
 
     public Collection<StockRecord> getStockRecord() {
         return stockRecord;
     }
 
-    public void setStockRecord(Collection<StockRecord> stockRecord) {
-        this.stockRecord = stockRecord;
-    }
-
-    public void setStockSummary(LinkedHashMap<String, StockSummary> stockSummary) {
-        this.stockSummary = stockSummary;
-    }
-
     public LinkedHashMap<Integer, FutureOrder> getFutureCounter() {
         return futureCounter;
     }
 
-    public void setFutureCounter(LinkedHashMap<Integer, FutureOrder> futureCounter) {
-        this.futureCounter = futureCounter;
-    }
-
     public Collection<FutureRecord> getFutureRecord() {
         return futureRecord;
-    }
-
-    public void setFutureRecord(Collection<FutureRecord> futureRecord) {
-        this.futureRecord = futureRecord;
     }
 
     public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureLongPosition() {
@@ -806,40 +429,17 @@ public class BackTestConfig {
         return futureLongSummary;
     }
 
-    public void setFutureLongSummary(LinkedHashMap<String, FutureSummary> futureLongSummary) {
-        this.futureLongSummary = futureLongSummary;
-    }
 
     public HashMap<String, FutureSummary> getFutureShortSummary() {
         return futureShortSummary;
-    }
-
-    public void setFutureShortSummary(LinkedHashMap<String, FutureSummary> futureShortSummary) {
-        this.futureShortSummary = futureShortSummary;
     }
 
     public Collection<Object> getFutureOrderRecord() {
         return futureOrderRecord;
     }
 
-    public void setFutureOrderRecord(Collection<Object> futureOrderRecord) {
-        this.futureOrderRecord = futureOrderRecord;
-    }
-
     public Double getStockCash() {
         return stockCash;
-    }
-
-    public void setStockCash(Double stockCash) {
-        this.stockCash = stockCash;
-    }
-
-    public void setFutureLongSummary(HashMap<String, FutureSummary> futureLongSummary) {
-        this.futureLongSummary = futureLongSummary;
-    }
-
-    public void setFutureShortSummary(HashMap<String, FutureSummary> futureShortSummary) {
-        this.futureShortSummary = futureShortSummary;
     }
 
     public Double getOriStockCash() {
@@ -854,56 +454,28 @@ public class BackTestConfig {
         return oriFutureCash;
     }
 
-    public void setOriFutureCash(Double oriFutureCash) {
-        this.oriFutureCash = oriFutureCash;
-    }
-
     public Double getOriOptionCash() {
         return oriOptionCash;
-    }
-
-    public void setOriOptionCash(Double oriOptionCash) {
-        this.oriOptionCash = oriOptionCash;
     }
 
     public Double getFutureCash() {
         return futureCash;
     }
 
-    public void setFutureCash(Double futureCash) {
-        this.futureCash = futureCash;
-    }
-
     public Double getOptionCash() {
         return optionCash;
-    }
-
-    public void setOptionCash(Double optionCash) {
-        this.optionCash = optionCash;
     }
 
     public Double getStockProfit() {
         return stockProfit;
     }
 
-    public void setStockProfit(Double stockProfit) {
-        this.stockProfit = stockProfit;
-    }
-
     public Double getStockRealTimeProfit() {
         return stockRealTimeProfit;
     }
 
-    public void setStockRealTimeProfit(Double stockRealTimeProfit) {
-        this.stockRealTimeProfit = stockRealTimeProfit;
-    }
-
     public Double getFutureProfit() {
         return futureProfit;
-    }
-
-    public void setFutureProfit(Double futureProfit) {
-        this.futureProfit = futureProfit;
     }
 
     public Double getFutureRealTimeProfit() {
@@ -918,15 +490,7 @@ public class BackTestConfig {
         return optionProfit;
     }
 
-    public void setOptionProfit(Double optionProfit) {
-        this.optionProfit = optionProfit;
-    }
-
     public Double getOptionRealTimeProfit() {
         return optionRealTimeProfit;
-    }
-
-    public void setOptionRealTimeProfit(Double optionRealTimeProfit) {
-        this.optionRealTimeProfit = optionRealTimeProfit;
     }
 }

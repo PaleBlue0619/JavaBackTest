@@ -8,7 +8,7 @@ public class StockBarDay extends KBar{
     }
 
     public StockBarDay(String symbol, LocalDate tradeDate,
-                    Double open, Double high, Double low, Double close, Double volume){
+                    Double open, Double high, Double low, Double close, Integer volume){
         super(symbol, tradeDate, LocalTime.of(15,0,0), open, high, low, close, volume);
     }
 }

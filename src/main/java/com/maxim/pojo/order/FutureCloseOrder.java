@@ -1,17 +1,20 @@
 package com.maxim.pojo.order;
+import com.maxim.pojo.emun.OrderDirection;
+import com.maxim.pojo.emun.OrderType;
+
 import java.time.*;
 
 // 订单对象
 public class FutureCloseOrder extends FutureOrder {
-    private static final String ORDER_STATE = "close";
-    public String order_type;
+    private static final OrderType ORDER_TYPE = OrderType.CLOSE;
+    public OrderDirection order_direction;
 
-    public FutureCloseOrder(String order_type, String symbol, Double vol, Double price, LocalDate create_date, LocalDateTime create_timestamp,
-                           LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason, Boolean partialOrder) {
-        super(order_type, symbol, vol, price, create_date, create_timestamp,
+    public FutureCloseOrder(OrderDirection direction, String symbol, Integer vol, Double price, LocalDate create_date, LocalDateTime create_timestamp,
+                            LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason, Boolean partialOrder) {
+        super(direction, symbol, vol, price, create_date, create_timestamp,
                 min_order_timestamp, max_order_timestamp, reason);
-        this.order_type = order_type;
-        this.order_state = ORDER_STATE;
+        this.order_type = ORDER_TYPE;
+        this.order_direction = direction;
         this.partialOrder = partialOrder;
     }
 }

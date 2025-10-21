@@ -1,10 +1,12 @@
 package com.maxim.pojo.order;
+import com.maxim.pojo.emun.OrderType;
+
 import java.time.*;
 
 public class Order{
-    public String order_state;  // 后续每个inheritor的实例对象的属性值都不一样(open/close/long/short/buycall/...)
+    public OrderType order_type;  // 要么开仓要么平仓
     public String symbol; // 标的名称
-    public Double vol;
+    public Integer vol;
     public Double price;
     public LocalDate create_date;
     public LocalDateTime create_timestamp;
@@ -12,7 +14,7 @@ public class Order{
     public LocalDateTime max_order_timestamp;
     public String reason;
 
-    public Order(String symbol, Double vol, Double price, LocalDate create_date, LocalDateTime create_timestamp, LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason) {
+    public Order(String symbol, Integer vol, Double price, LocalDate create_date, LocalDateTime create_timestamp, LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason) {
         this.symbol = symbol;
         this.vol = vol;
         this.price = price;

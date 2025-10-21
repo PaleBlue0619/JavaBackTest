@@ -42,8 +42,24 @@ public class fromJson {
     public <T> TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> JsonToJavaBeansByTime(Collection<LocalDate> dateList,
                                                                                                 String filePath,
                                                                                                 Class<T> clazz){
-        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = fromJsonCommon(dateList, filePath,
-                (Class<TreeMap<LocalTime, HashMap<String, T>>>) (Class<?>) TreeMap.class);
+//        // 问题: 难以正确将String -> LocalTime
+//        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = fromJsonCommon(dateList, filePath,
+//                (Class<TreeMap<LocalTime, HashMap<String, T>>>) (Class<?>) TreeMap.class);
+
+        // 先用String作为键读取
+        TreeMap<LocalDate, TreeMap<String, HashMap<String, T>>> tempResult =
+                fromJsonCommon(dateList, filePath, (Class<TreeMap<String, HashMap<String, T>>>) (Class<?>) TreeMap.class);
+
+        // 手动转换String键为LocalTime键
+        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new TreeMap<>();
+        for (Map.Entry<LocalDate, TreeMap<String, HashMap<String, T>>> entry : tempResult.entrySet()) {
+            TreeMap<LocalTime, HashMap<String, T>> convertedMap = new TreeMap<>();
+            for (Map.Entry<String, HashMap<String, T>> innerEntry : entry.getValue().entrySet()) {
+                LocalTime timeKey = LocalTime.parse(innerEntry.getKey());
+                convertedMap.put(timeKey, innerEntry.getValue());
+            }
+            resultMap.put(entry.getKey(), convertedMap);
+        }
         return resultMap;
     }
 
@@ -55,17 +71,41 @@ public class fromJson {
         return resultMap;
     }
 
-    public <T> TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> JsonToJavaBeanByTime(Collection<LocalDate> dateList,
-                                                                                               String filePath,
-                                                                                               Class<T> clazz){
-        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = fromJsonCommon(dateList, filePath,
-                (Class<TreeMap<LocalTime, HashMap<String, T>>>) (Class<?>) TreeMap.class);
-        return resultMap;
-    }
+//    public <T> TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> JsonToJavaBeansByTime(
+//        Collection<LocalDate> dateList, String filePath, Class<T> clazz) {
+//        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new TreeMap<>();
+//
+//        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
+//
+//        for (LocalDate date : dateList) {
+//            LocalDate finalDate = date;
+//            String fileName = date.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".json";
+//            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+//                try {
+//                    String strJson = new String(
+//                            Files.readAllBytes(Path.of(filePath + File.separator + Paths.get(fileName))));
+//
+//                    // 使用 TypeReference 来正确处理包含 LocalTime 键的 TreeMap
+//                    TreeMap<LocalTime, HashMap<String, T>> innerMap = JSON.parseObject(strJson,
+//                        new com.alibaba.fastjson2.TypeReference<TreeMap<LocalTime, HashMap<String, T>>>() {});
+//
+//                    resultMap.put(finalDate, innerMap);
+//                } catch (IOException e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+//            futures.add(future);
+//        }
+//
+//        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+//        return resultMap;
+//    }
+
 
     public <T> TreeMap<LocalDate, T> fromJsonCommon(Collection<LocalDate> dateList,
-                                                    String filePath,
-                                                    Class<T> clazz){
+                                                String filePath,
+                                                Class<T> clazz){
+
         // 创建异步多线程结果接收集合
         TreeMap<LocalDate, T> resultMap = new TreeMap<>();
         Collection<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -77,7 +117,8 @@ public class fromJson {
                 try {
                     String strJson = new String(
                             Files.readAllBytes(Path.of(filePath + File.separator + Paths.get(fileName))));
-                    T object = JSON.parseObject(strJson, clazz);
+                    T object;
+                    object = JSON.parseObject(strJson, clazz);
                     resultMap.put(finalDate, object);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
@@ -93,6 +134,7 @@ public class fromJson {
         return resultMap;
     }
 }
+
 
 
 

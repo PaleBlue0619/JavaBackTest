@@ -3,6 +3,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.maxim.pojo.BackTestConfig;
 import com.maxim.pojo.TradeBehavior;
+import com.maxim.pojo.emun.OrderDirection;
+import com.maxim.pojo.emun.OrderType;
 import com.maxim.pojo.info.FutureInfo;
 import com.maxim.pojo.info.StockInfo;
 import com.maxim.pojo.kbar.FutureBar;
@@ -36,16 +38,16 @@ public class CounterBehavior extends TradeBehavior {
 
     public static void afterBarStock(){
         /*
-         * 1. 更新全局属性(仓位的动态盈亏(由于所有Position在创建的时候pre_price == price, 所以第一个K线的动态盈亏始终为0.0))
-         * 2. 更新股票视图(realTimePrice/realTimeProfit)
-         * 3. 更新股票仓位相关属性(history_min/history_max/profit/pre_price)
+         * 1. 变全局:更新全局属性(仓位的动态盈亏(由于所有Position在创建的时候pre_price == price, 所以第一个K线的动态盈亏始终为0.0))
+         * 2. 变视图:更新股票视图(realTimePrice/realTimeProfit)
+         * 3. 变自己:更新股票仓位相关属性(history_min/history_max/profit/pre_price)
          * */
 
         // 获取BackTestConfig实例
         BackTestConfig config = BackTestConfig.getInstance();
 
         // 获取当前K线
-        int minute = config.currentMinute;
+        LocalTime minute = config.currentMinute;
         HashMap<String, StockBar> stock_k_dict = config.stockKDict.get(minute);
 
         // 获取持仓 & 视图
@@ -111,7 +113,7 @@ public class CounterBehavior extends TradeBehavior {
         BackTestConfig config = BackTestConfig.getInstance();
 
         // 获取当前K线
-        int minute = config.currentMinute;
+        LocalTime minute = config.currentMinute;
         HashMap<String, FutureBar> future_k_dict = config.futureKDict.get(minute);
 
         // 获取多头持仓 & 空头持仓
@@ -237,7 +239,7 @@ public class CounterBehavior extends TradeBehavior {
         }
     }
 
-    public static void executeStock(String symbol, Double price, Double vol,
+    public static void executeStock(String symbol, Double price, Integer vol,
                                     Double static_profit, Double static_loss,
                                     Double dynamic_profit, Double dynamic_loss,
                                     LocalDateTime min_timestamp, LocalDateTime max_timestamp,
@@ -269,14 +271,14 @@ public class CounterBehavior extends TradeBehavior {
         }
 
         // 在StockRecord中记录
-        StockRecord R = new StockRecord("open", reason, config.currentDate, config.currentMinute, config.currentTimeStamp, symbol, price, vol, 0.0);
+        StockRecord R = new StockRecord(OrderType.OPEN, reason, config.currentDate, config.currentMinute, config.currentTimeStamp, symbol, price, vol, 0.0);
         config.stockRecord.add(R);
 
         config.cash-=vol*price; // 减去股票购买成本
         config.stockCash-=vol*price;
     }
 
-    public static void executeFuture(String order_type, String symbol, Double price, Double vol,
+    public static void executeFuture(OrderDirection direction, String symbol, Double price, Integer vol,
                                      Double static_profit, Double static_loss,
                                      Double dynamic_profit, Double dynamic_loss,
                                      LocalDateTime min_timestamp, LocalDateTime max_timestamp,
@@ -300,7 +302,7 @@ public class CounterBehavior extends TradeBehavior {
         // TODO: 在FutureInfo中添加一个Integer类型的属性, 用于表明保证金计算方式, 这里获取该属性从而去使用对应方式计算初始保证金
         FuturePosition pos = new FuturePosition(price, vol, margin_rate, min_timestamp, max_timestamp, static_profit, static_loss, dynamic_profit, dynamic_loss);
 
-        if (order_type.equals("long")){
+        if (direction.equals(OrderDirection.LONG)){
             // 设置该多头仓位的static_high & static_low, 后续monitor中不再更新
             pos.static_high = (static_profit!=null)? price * (1 + static_profit) : null;
             pos.static_low = (static_loss!=null)? price * (1 - static_loss) : null;
@@ -340,13 +342,13 @@ public class CounterBehavior extends TradeBehavior {
 
         // 在FutureRecord中记录
         double margin = price * vol * margin_rate;
-        FutureRecord R = new FutureRecord("open", order_type, reason, config.currentDate, config.currentMinute, config.currentTimeStamp, symbol, price, vol, 0.0);
+        FutureRecord R = new FutureRecord(OrderType.OPEN, direction, reason, config.currentDate, config.currentMinute, config.currentTimeStamp, symbol, price, vol, 0.0);
         config.futureRecord.add(R);
         config.cash-=margin; // 减去期货购买成本, 即付出的保证金
         config.futureCash-=margin;
     }
 
-    public static void closeStock(String symbol, Double price, Double vol, String reason) {
+    public static void closeStock(String symbol, Double price, Integer vol, String reason) {
         double profit = 0.0; // 该笔交易获得的盈利
         double margin = 0.0; // 该笔交易获得的保证金
         BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig示例
@@ -363,45 +365,44 @@ public class CounterBehavior extends TradeBehavior {
         // 当前股票有持仓
         // 获取该股票的持仓的具体细节
         pos_list = config.stockPosition.get(symbol);
-        ArrayList<Double> current_vol_list = new ArrayList<>();
+        ArrayList<Integer> current_vol_list = new ArrayList<>();
         ArrayList<Double> ori_price_list = new ArrayList<>();
         ArrayList<Integer> time_monitor_list = new ArrayList<>();
         for (StockPosition pos : pos_list) {
-            current_vol_list.add(pos.getVol());
-            ori_price_list.add(pos.getPrice());
+            current_vol_list.add(pos.vol);
+            ori_price_list.add(pos.price);
             time_monitor_list.add(pos.time_monitor);
         }
 
         // 获取允许平仓的最大数量
-        double current_vol;
+        int current_vol = 0;
         boolean state;
         if (time_monitor_list.contains(-2)) {
             // 说明当前持仓队列中存在禁止卖出的标的
             int index = time_monitor_list.indexOf(-2);
-            current_vol = current_vol_list.stream()
-                    .limit(index)
-                    .mapToDouble(Double::doubleValue)
-                    .sum();
+            for (int i = 0; i < index && i < current_vol_list.size(); i++) {
+                current_vol += current_vol_list.get(i);
+            }
             state = false;
         } else {
             // 说明当前持仓队列中所有股票均可以卖出
-            current_vol = current_vol_list.stream()
-                    .mapToDouble(Double::doubleValue)
-                    .sum();
+            for (Integer v : current_vol_list) {
+                current_vol += v;
+            }
             state = true;
         }
         if (current_vol == 0.0) {
             return; // 说明当前无法平仓
         }
         // 获取当前可以平仓的最大数量
-        double max_vol = Math.min(current_vol, vol);
-        double record_vol = max_vol;
+        int max_vol = Math.min(current_vol, vol);
+        int record_vol = max_vol;
 
         if (max_vol >= current_vol && state) {  // 说明都可以平仓
             // 逐笔计算盈亏
             for (int i = 0; i < current_vol_list.size(); i++) {
-                Double position_vol = current_vol_list.get(i);
-                Double ori_price = ori_price_list.get(i);
+                int position_vol = current_vol_list.get(i);
+                double ori_price = ori_price_list.get(i);
                 margin += price * position_vol;
                 profit += (price - ori_price) * position_vol;  // 逐笔盈亏
             }
@@ -415,8 +416,8 @@ public class CounterBehavior extends TradeBehavior {
 
             // 再对持仓进行处理
             for (int i = 0; i < current_vol_list.size(); i++) {
-                Double posVol = current_vol_list.get(i);
-                Double posPrice = ori_price_list.get(i);
+                int posVol = current_vol_list.get(i);
+                double posPrice = ori_price_list.get(i);
                 if (max_vol >= posVol) { // 当前订单全部平仓
                     margin += price * posVol;
                     profit += (price - posPrice) * posVol;
@@ -432,7 +433,7 @@ public class CounterBehavior extends TradeBehavior {
             config.stockPosition.put(symbol, pos_list);
         }
         // 记录本次交易
-        StockRecord R = new StockRecord("close", reason, config.currentDate, config.currentMinute, config.currentTimeStamp,
+        StockRecord R = new StockRecord(OrderType.CLOSE, reason, config.currentDate, config.currentMinute, config.currentTimeStamp,
                 symbol, price, record_vol, profit);
         config.stockRecord.add(R);
 
@@ -443,7 +444,7 @@ public class CounterBehavior extends TradeBehavior {
         config.stockCash += margin;
     }
 
-    public static void closeFuture(String order_type, String symbol, Double vol, Double price, String reason){
+    public static void closeFuture(OrderDirection direction, String symbol, Integer vol, Double price, String reason){
         /*
         期货合约平仓函数
         */
@@ -452,7 +453,7 @@ public class CounterBehavior extends TradeBehavior {
 
         // 获取当前期货的仓位
         ArrayList<FuturePosition> pos_list;
-        if (order_type.equals("long")){
+        if (direction.equals(OrderDirection.LONG)){
             if (config.getFutureLongPosition().isEmpty()){
                 return ;  // 说明当前没有期货多头持仓
             }
@@ -476,49 +477,48 @@ public class CounterBehavior extends TradeBehavior {
         }
 
         // 获取当前期货持仓的具体细节
-        ArrayList<Double> current_vol_list = new ArrayList<>();  // 每个仓位对应的持仓数量
+        ArrayList<Integer> current_vol_list = new ArrayList<>();  // 每个仓位对应的持仓数量
         ArrayList<Double> ori_price_list = new ArrayList<>();    // 每个仓位对应的持仓价格
         ArrayList<Double> pre_margin_list = new ArrayList<>();   // 每个仓位对应的保证金
         ArrayList<Integer> time_monitor_list = new ArrayList<>(); // 每个仓位对应的持仓时间
         ArrayList<Integer> hold_days_list = new ArrayList<>();   // 每个仓位对应的期货持仓时间监控状态情况
         for (FuturePosition pos : pos_list) {
-            current_vol_list.add(pos.getVol());
-            ori_price_list.add(pos.getPrice());
+            current_vol_list.add(pos.vol);
+            ori_price_list.add(pos.price);
             pre_margin_list.add(pos.margin);
             time_monitor_list.add(pos.time_monitor);
             hold_days_list.add(pos.hold_days);
         }
 
         // 获取允许平仓的最大数量
-        double current_vol;
+        int current_vol = 0;
         boolean state;
         if (time_monitor_list.contains(-2)){
             // 说明当前持仓队列中存在禁止卖出的标的
             int index = time_monitor_list.indexOf(-2);
-            current_vol = current_vol_list.stream()
-                    .limit(index)
-                    .mapToDouble(Double::doubleValue)
-                    .sum();
+            for (int i = 0; i < index && i < current_vol_list.size(); i++) {
+                current_vol += current_vol_list.get(i);
+            }
             state = false;
         }else{
             // 说明当前持仓队列中所有股票均可以卖出
-            current_vol = current_vol_list.stream()
-                    .mapToDouble(Double::doubleValue)
-                    .sum();
+            for (Integer v : current_vol_list){
+                current_vol += v;
+            }
             state = true;
         }
         if (current_vol == 0.0){
             return ; // 说明当前无法平仓
         }
         // 获取当前可以平仓的最大数量
-        double max_vol = Math.min(current_vol, vol); // 每次循环会改变max_vol的值，直到max_vol为=0
-        double record_vol = max_vol;  // for record
+        int max_vol = Math.min(current_vol, vol); // 每次循环会改变max_vol的值，直到max_vol为=0
+        int record_vol = max_vol;  // for record
         double profit = 0.0, settle_profit = 0.0, margin = 0.0;  // 该笔交易获得盈利(平仓盈亏)  // 该笔交易获得的定时盈亏(平仓价-昨结价) // 该笔交易收回的保证金
 
         if (max_vol >= current_vol && state){  // 说明都可以平仓
             // 逐笔计算盈亏
             for (int i = 0; i < current_vol_list.size(); i++) {
-                Double position_vol = current_vol_list.get(i);
+                int position_vol = current_vol_list.get(i);
                 Double ori_price = ori_price_list.get(i);
                 Double pre_margin = pre_margin_list.get(i);
                 Double pre_settle = pre_margin_list.get(i);
@@ -532,7 +532,7 @@ public class CounterBehavior extends TradeBehavior {
                 margin += (pre_margin + settle_profit); // 收回的保证金
             }
             // 对持仓&视图进行处理
-            if (order_type.equals("long")){
+            if (direction.equals(OrderDirection.LONG)){
                 config.futureLongPosition.remove(symbol);
                 config.futureLongSummary.remove(symbol);
             }else{
@@ -542,7 +542,7 @@ public class CounterBehavior extends TradeBehavior {
         }else{ // 说明只有部分仓位可以被平
 
             // 先对视图进行批处理
-            if (order_type.equals("long")){
+            if (direction.equals(OrderDirection.LONG)){
                 config.futureLongSummary.get(symbol).closeLongUpdate(price, max_vol);
             }else{
                 config.futureShortSummary.get(symbol).closeShortUpdate(price, max_vol);
@@ -550,7 +550,7 @@ public class CounterBehavior extends TradeBehavior {
 
             // 再对持仓进行处理
             for (int i = 0; i < current_vol_list.size(); i++) {
-                Double position_vol = current_vol_list.get(i);
+                Integer position_vol = current_vol_list.get(i);
                 Double ori_price = ori_price_list.get(i);
                 Double pre_margin = pre_margin_list.get(i);
                 Double pre_settle = pre_margin_list.get(i);
@@ -579,14 +579,14 @@ public class CounterBehavior extends TradeBehavior {
                 }
             }
             // 更新标的持仓 & 视图
-            if (order_type.equals("long")){
+            if (direction.equals(OrderDirection.LONG)){
                 config.futureLongPosition.put(symbol, pos_list);
             }else{
                 config.futureShortPosition.put(symbol, pos_list);
             }
         }
         // 记录本次交易
-        FutureRecord R = new FutureRecord("close", order_type, reason, config.currentDate, config.currentMinute, config.currentTimeStamp,
+        FutureRecord R = new FutureRecord(OrderType.CLOSE, direction, reason, config.currentDate, config.currentMinute, config.currentTimeStamp,
                 symbol, price, record_vol, profit);
         config.futureRecord.add(R);
 
@@ -718,7 +718,7 @@ public class CounterBehavior extends TradeBehavior {
         }
 
         LocalDate date = config.currentDate;
-        Integer minute = config.currentMinute;
+        LocalTime minute = config.currentMinute;
         LocalDateTime timestamp = config.currentTimeStamp;
         if (!config.stockKDict.containsKey(minute)){
             return ;
@@ -729,7 +729,7 @@ public class CounterBehavior extends TradeBehavior {
         for (String symbol: stockPos.keySet()){
             StockInfo info_dict = stock_info_dict.get(symbol);
             StockBar kBar = stock_k_dict.get(symbol); // 当前股票分钟Bar
-            StockSummary summary = config.stockSummary.get(symbol); // 当前股票持仓视图
+            // StockSummary summary = config.stockSummary.get(symbol); // 当前股票持仓视图
 
             // Step0. 获取基本信息并更新股票持仓视图
             LocalDate end_date = info_dict.end_date;
@@ -771,9 +771,9 @@ public class CounterBehavior extends TradeBehavior {
                 i++;
 
                 // 获取持仓信息
-                Double positionVol = position.getVol();  // 这个仓位的持仓数量
-                LocalDateTime min_timestamp = position.getMin_timestamp();
-                LocalDateTime max_timestamp = position.getMax_timestamp();
+                Integer positionVol = position.vol;  // 这个仓位的持仓数量
+                LocalDateTime min_timestamp = position.min_timestamp;
+                LocalDateTime max_timestamp = position.max_timestamp;
 
                 // Step1. 监控最短最长持仓时间
                 // 移到onBarMonitor里面了
@@ -865,12 +865,12 @@ public class CounterBehavior extends TradeBehavior {
     }
 
     // 这里因为代码实在太长了, 就加了一个参数表明判断的是多头仓位还是空头仓位
-    public static void monitorFuturePosition(String order_type, boolean order_sequence){
+    public static void monitorFuturePosition(OrderDirection direction, boolean order_sequence){
         // 获取当前配置实例
         BackTestConfig config = BackTestConfig.getInstance();
 
         LinkedHashMap<String, ArrayList<FuturePosition>> futurePos;
-        if (order_type.equals("long")){
+        if (direction.equals(OrderDirection.LONG)){
             futurePos = config.getFutureLongPosition();
             if (futurePos.isEmpty()){
                 return ; // 当前多头没有持仓
@@ -883,7 +883,7 @@ public class CounterBehavior extends TradeBehavior {
         }
 
         LocalDate date = config.currentDate;
-        Integer minute = config.currentMinute;
+        LocalTime minute = config.currentMinute;
         LocalDateTime timestamp = config.currentTimeStamp;
         if (!config.futureKDict.containsKey(minute)){ // 说明这一分钟K线缺失
             return ;
@@ -894,7 +894,7 @@ public class CounterBehavior extends TradeBehavior {
         for (String symbol: futurePos.keySet()){
             FutureInfo info_dict = future_info_dict.get(symbol);
             FutureBar kBar = future_k_dict.get(symbol); // 当前期货分钟Bar
-            if (order_type.equals("long")){
+            if (direction.equals(OrderDirection.LONG)){
                 FutureSummary summary = config.getFutureLongSummary().get(symbol); // 当前期货持仓视图
             }else{
                 FutureSummary summary = config.getFutureShortSummary().get(symbol);
@@ -913,7 +913,7 @@ public class CounterBehavior extends TradeBehavior {
             int i = 0;
             while (i < positionList.size()){
                 // 若当前已经该期货的持仓, 进行保护
-                if (order_type.equals("long")){
+                if (direction.equals(OrderDirection.LONG)){
                     if (!config.futureLongPosition.containsKey(symbol)) {
                         // TODO: 这里是break还是continue,给个说法?
                         i++;
@@ -949,10 +949,10 @@ public class CounterBehavior extends TradeBehavior {
                 i++;
 
                 // 获取持仓信息
-                Double positionVol = position.getVol();  // 这个仓位的持仓数量
-                LocalDateTime min_timestamp = position.getMin_timestamp();
+                Integer positionVol = position.vol;  // 这个仓位的持仓数量
+                LocalDateTime min_timestamp = position.min_timestamp;
                 LocalDate min_date = min_timestamp.toLocalDate();
-                LocalDateTime max_timestamp = position.getMax_timestamp();
+                LocalDateTime max_timestamp = position.max_timestamp;
                 LocalDate max_date = max_timestamp.toLocalDate();
 
                 // Step1. 给出时间维度基本判断(当天后续回测时间是否需要继续监视该订单)-持仓时间维度
@@ -962,11 +962,11 @@ public class CounterBehavior extends TradeBehavior {
                 // Step2. 对限时单进行平仓[在JavaBackTest中, 时间维度优先级>价格维度]
                 if (time_monitor == 1){ // 需要强制平仓的期货  // TODO: 考虑一下是否时间维度也要加close_permission
                     if (date.isEqual(end_date) || date.isAfter(end_date)){
-                        CounterBehavior.closeFuture(order_type, symbol, close_price, positionVol, "end_date");
+                        CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "end_date");
                         continue;
                     }
                     if (timestamp.isAfter(max_timestamp)){ // 超过最长持仓时间
-                        CounterBehavior.closeFuture(order_type, symbol, close_price, positionVol, "max_timestamp");
+                        CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "max_timestamp");
                         continue;
                     }
                 }else{
@@ -1040,7 +1040,7 @@ public class CounterBehavior extends TradeBehavior {
 
             // 赋值回BackTestConfig
             if (!positionList.isEmpty()){
-                if (order_type.equals("long")){
+                if (direction.equals(OrderDirection.LONG)){
                     config.futureLongPosition.put(symbol, positionList);
                 }else{
                     config.futureShortPosition.put(symbol, positionList);

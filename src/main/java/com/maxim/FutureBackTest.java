@@ -1,6 +1,9 @@
 package com.maxim;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.TypeReference;
 import com.maxim.pojo.BackTestConfig;
 import com.maxim.pojo.CounterBehavior;
+import com.maxim.pojo.emun.OrderDirection;
 import com.maxim.pojo.info.StockInfo;
 import com.maxim.pojo.kbar.StockBar;
 import com.maxim.pojo.position.Position;
@@ -32,23 +35,46 @@ public class FutureBackTest {
         BackTestConfig config = BackTestConfig.getInstance(jsonContent);
         System.out.println(config.getProfit());
 
-        // for (date in date_list){
-        LocalDate tradeDate = LocalDate.of(2023, 2, 1);
-        config.setCurrentDate(tradeDate);
-        config.setCurrentDotDate(tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")));
-        config.setCurrentStrDate(tradeDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
-
         // 分钟频回测
-        fromJson fj = new fromJson();
-        Collection<LocalDate> dateList = List.of(LocalDate.of(2020, 1, 2),
+        fromJson fj = new fromJson(); // JSON->JavaBeans解析类
+        Collection<LocalDate> dateList = List.of(
+                LocalDate.of(2020, 1, 2),
                 LocalDate.of(2020,1,3),
-                LocalDate.of(2020,1,6));
-        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> barMap =
+                LocalDate.of(2020,1,6)
+                );
+        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> tempBarMap =
                 fj.JsonToJavaBeansByTime(dateList, barPath, StockBar.class);
-        barMap.forEach(
-                (date, timeMap) -> {
-                    System.out.println(timeMap.keySet());
-                }
-        );
+
+        // 使用 FastJSON2 重新构造对象
+        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> barMap = new TreeMap<>();
+        for (Map.Entry<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> dateEntry : tempBarMap.entrySet()) {
+            String jsonStr = JSON.toJSONString(dateEntry.getValue());
+            TreeMap<LocalTime, HashMap<String, StockBar>> parsedMap = JSON.parseObject(jsonStr,
+                    new TypeReference<TreeMap<LocalTime, HashMap<String, StockBar>>>() {});
+            barMap.put(dateEntry.getKey(), parsedMap);
+        }
+
+        for (LocalDate tradeDate : dateList){ // for - loop
+            config.setCurrentDate(tradeDate); // 固定配置项
+            config.setStockKDict(barMap.get(tradeDate));
+
+            for (LocalTime tradeTime: Utils.getMinuteList("SSE")){
+                config.setCurrentMinute(tradeTime); // 固定配置项
+                Counter.executeStock("000001.SZ", 166500.0, 100,
+                        0.03, 0.03, 0.03, 0.03,
+                        null, LocalDateTime.of(tradeDate.getYear(), tradeDate.getMonth(), tradeDate.getDayOfMonth(),
+                                tradeTime.getHour(), tradeTime.getMinute(), tradeTime.getSecond()), "");
+                // 固定回调函数
+                Counter.monitorStockPosition(true);
+                Counter.monitorFuturePosition(OrderDirection.LONG, true);
+                Counter.monitorFuturePosition(OrderDirection.SHORT, true);
+                Counter.processStockOrderStrict(0.05, 0.05);
+                Counter.afterBarStock();
+                Counter.afterBarFuture();
+            } // 固定回调函数
+            Counter.afterDayStock();
+            Counter.afterDayFuture();
+            System.out.println("Day:"+tradeDate+"Profit"+config.getProfit());
+        }
     }
 }

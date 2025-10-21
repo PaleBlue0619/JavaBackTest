@@ -27,8 +27,6 @@ public class StockBackTest {
         // for (date in date_list){
         LocalDate tradeDate = LocalDate.of(2023, 2, 1);
         config.setCurrentDate(tradeDate);
-        config.setCurrentDotDate(tradeDate.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")));
-        config.setCurrentStrDate(tradeDate.format(DateTimeFormatter.ofPattern("yyyyMMdd")));
 
 //        TreeMap<Integer, HashMap<String, StockBar>> MinStockBars = getStockKDataFromJson(config.getStockCounterJson(), tradeDate, 3);
 //        config.setStockKDict(MinStockBars);
