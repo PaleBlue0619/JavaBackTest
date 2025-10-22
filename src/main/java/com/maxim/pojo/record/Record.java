@@ -16,6 +16,10 @@ public class Record {
     Integer vol;
     Double pnl;
 
+    public Record(){
+
+    }
+
     public Record(OrderType order_type, String reason, LocalDate date, LocalTime minute, LocalDateTime timestamp, String symbol, Double price, Integer vol, Double pnl) {
         this.timestamp = timestamp;
         this.order_type = order_type;

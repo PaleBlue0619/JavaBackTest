@@ -8,6 +8,11 @@ import java.time.LocalTime;
 
 public class StockRecord extends Record{
     private final static OrderDirection direction = OrderDirection.LONG;
+
+    public StockRecord(){
+
+    }
+
     public StockRecord(OrderType order_type, String reason, LocalDate date, LocalTime minute, LocalDateTime timestamp,
                        String symbol, Double price, Integer vol, Double pnl) {
         super(order_type, reason, date, minute, timestamp, symbol, price, vol, pnl);

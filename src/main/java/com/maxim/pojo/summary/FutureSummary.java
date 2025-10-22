@@ -7,6 +7,11 @@ public class FutureSummary extends Summary{
     public Double profit;
     public Double realTimePrice; // 最新价格
     public Double realTimeProfit; // 最新浮盈浮亏
+
+    public FutureSummary(){
+
+    }
+
     public FutureSummary(Double ori_price, Integer total_vol, Double static_profit, Double static_loss, Double dynamic_profit,
                          Double dynamic_loss){
         super(ori_price, total_vol, static_profit, static_loss, dynamic_profit, dynamic_loss);

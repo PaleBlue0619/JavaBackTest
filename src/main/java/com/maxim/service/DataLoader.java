@@ -1,6 +1,7 @@
 package com.maxim.service;
 import com.maxim.pojo.emun.AssetType;
 import com.maxim.pojo.emun.DataFreq;
+import com.maxim.pojo.info.FutureInfo;
 import com.maxim.pojo.info.StockInfo;
 import com.maxim.pojo.kbar.FutureBar;
 import com.maxim.pojo.kbar.FutureBarDay;
@@ -94,6 +95,34 @@ public class DataLoader {
         }
     }
 
+    public void InfoToJson(AssetType assetType, String dbName, String tbName, String dateCol, String symbolCol,
+                           HashMap<String, String> transMap,
+                           String savePath, boolean dropFilePath,
+                           LocalDate start_date, LocalDate end_date,
+                           Collection<String> symbol_list, String...featureCols) throws IOException {
+        DBConnection conn = new DBConnection();
+        conn.connect(HOST, PORT);
+        conn.login(USERNAME, PASSWORD, false);
+        fromDolphinDB fromDB = new fromDolphinDB(conn, dbName, tbName, ThreadCount);
+        toJson js = new toJson();
+        ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> dayMap = fromDB.toBasicTableBySymbol(
+                start_date, end_date, symbol_list, dateCol, null, false, symbolCol, featureCols);
+            switch (assetType){
+                case STOCK:
+                    ConcurrentHashMap<LocalDate, HashMap<String, StockInfo>> stockDayInfo =
+                            fromDB.toJavaBeanBySymbol(dayMap, symbolCol, StockInfo.class, transMap);
+                    js.JavaBeanBySymbolToJson(stockDayInfo, savePath, dropFilePath);
+                    System.out.println("Stock DayInfo Beans saved");
+                    break;
+                case FUTURE:
+                    ConcurrentHashMap<LocalDate, HashMap<String, FutureInfo>> futureDayInfo =
+                                fromDB.toJavaBeanBySymbol(dayMap, symbolCol, FutureInfo.class, transMap);
+                    js.JavaBeanBySymbolToJson(futureDayInfo, savePath, dropFilePath);
+                    System.out.println("Future DayInfo Beans saved");
+                    break;
+                }
+    }
+
     public void KBarToJsonAsync(AssetType assetType, DataFreq dataFreq, String dbName, String tbName, String dateCol, String timeCol, String symbolCol,
                                 HashMap<String, String> transMap,
                                 String savePath, boolean dropFilePath,
@@ -167,6 +196,64 @@ public class DataLoader {
                 }
             }, executor);
 
+            futures.add(future);
+        }
+
+        // 等待所有任务完成
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        // 关闭线程池
+        executor.shutdown();
+    }
+
+    public void InfoToJsonAsync(AssetType assetType, String dbName, String tbName, String dateCol, String symbolCol,
+                                HashMap<String, String> transMap,
+                                String savePath, boolean dropFilePath,
+                                LocalDate start_date, LocalDate end_date,
+                                Collection<String> symbol_list, String...featureCols) throws IOException {
+        DBConnection conn = new DBConnection();
+        conn.connect(HOST, PORT);
+        conn.login(USERNAME, PASSWORD, false);
+        fromDolphinDB fromDB = new fromDolphinDB(conn, dbName, tbName, ThreadCount);
+        toJson js = new toJson();
+
+        // 生成日期列表
+        List<LocalDate> dateList = new ArrayList<>();
+        LocalDate current = start_date;
+        while (!current.isAfter(end_date)) {
+            dateList.add(current);
+            current = current.plusDays(1);
+        }
+
+        // 创建线程池控制并发
+        ExecutorService executor = Executors.newFixedThreadPool(ThreadCount);
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        // 为每个日期创建异步任务
+        for (LocalDate tradeDate : dateList) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    ConcurrentHashMap<LocalDate, HashMap<String, BasicTable>> dayMap = fromDB.toBasicTableBySymbol(tradeDate, tradeDate, symbol_list, dateCol, null, false, symbolCol, featureCols);
+                    switch (assetType) {
+                        case STOCK:
+                            ConcurrentHashMap<LocalDate, HashMap<String, StockInfo>> stockDayInfo =
+                                    fromDB.toJavaBeanBySymbol(dayMap, symbolCol, StockInfo.class, transMap);
+                            js.JavaBeanBySymbolToJson(stockDayInfo, savePath, dropFilePath);
+                            System.out.println("Stock DayInfo Beans saved");
+                            break;
+                        case FUTURE:
+                            ConcurrentHashMap<LocalDate, HashMap<String, FutureInfo>> futureDayInfo =
+                                    fromDB.toJavaBeanBySymbol(dayMap, symbolCol, FutureBarDay.class, transMap);
+                            js.JavaBeanBySymbolToJson(futureDayInfo, savePath, dropFilePath);
+                            System.out.println("Future DayKBar Beans saved");
+                            break;
+                    }
+                }
+                catch (Exception e) {
+                    System.err.println("Error processing date: " + tradeDate);
+                    e.printStackTrace();
+                }
+            }, executor);
             futures.add(future);
         }
 

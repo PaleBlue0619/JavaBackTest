@@ -1,4 +1,6 @@
 package com.maxim.pojo.summary;
+import com.maxim.pojo.info.StockInfo;
+
 import java.time.LocalDateTime;
 
 public class StockSummary extends Summary{
@@ -7,6 +9,10 @@ public class StockSummary extends Summary{
     public Double profit;   // 平仓损益
     public Double realTimeProfit;  // 当前实时损益
     public Double realTimePrice; // 当前实时价格
+
+    public StockSummary(){
+
+    }
 
     public StockSummary(Double ori_price, Integer total_vol, Double static_profit, Double static_loss, Double dynamic_profit,
                         Double dynamic_loss){

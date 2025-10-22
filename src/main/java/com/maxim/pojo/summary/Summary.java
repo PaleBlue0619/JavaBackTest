@@ -9,7 +9,10 @@ public class Summary{
     public Double dynamic_profit;
     public Double dynamic_loss;
 
-    // Constructor
+    public Summary(){
+
+    }
+
     public Summary(Double ori_price, Integer total_vol, Double static_profit, Double static_loss, Double dynamic_profit,
                    Double dynamic_loss) {
         this.static_profit = static_profit;

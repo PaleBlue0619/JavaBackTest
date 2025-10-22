@@ -9,6 +9,10 @@ public class FutureCloseOrder extends FutureOrder {
     private static final OrderType ORDER_TYPE = OrderType.CLOSE;
     public OrderDirection order_direction;
 
+    public FutureCloseOrder(){
+
+    }
+
     public FutureCloseOrder(OrderDirection direction, String symbol, Integer vol, Double price, LocalDate create_date, LocalDateTime create_timestamp,
                             LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason, Boolean partialOrder) {
         super(direction, symbol, vol, price, create_date, create_timestamp,

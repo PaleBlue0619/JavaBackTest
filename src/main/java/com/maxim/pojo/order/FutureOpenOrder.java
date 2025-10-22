@@ -17,6 +17,10 @@ public class FutureOpenOrder extends FutureOrder {
     public Double dynamic_loss;
     public Double commission;
 
+    public FutureOpenOrder(){
+
+    }
+
     public FutureOpenOrder(OrderDirection direction, String symbol, Integer vol, Double price, // Double margin_rate,
                            LocalDate create_date, LocalDateTime create_timestamp,
                            LocalDateTime min_timestamp, LocalDateTime max_timestamp,

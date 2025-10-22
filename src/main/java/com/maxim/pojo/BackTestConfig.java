@@ -282,48 +282,16 @@ public class BackTestConfig {
         return currentTimeStamp;
     }
 
-    public TreeMap<LocalTime, HashMap<String, StockBar>> getStockKDict() {
-        return stockKDict;
-    }
-
-    public void setStockKDict(TreeMap<LocalTime, HashMap<String, StockBar>> stockKDict) {
-        this.stockKDict = stockKDict;
-    }
-
-    public LinkedHashMap<Integer, StockOrder> getStockCounter() {
-        return stockCounter;
-    }
-    // TODO: 评估这里是HashMap 还是应该是 LinkedHashMap, 因为order_id已经是同步自增的序号了，按理说LinkedHashMap会保持插入顺序, 问题是否需要排序呢
-
-    public void setStockCounter(LinkedHashMap<Integer, StockOrder> stockCounter) {
-        this.stockCounter = stockCounter;
-    }
-
-    public LinkedHashMap<String, ArrayList<StockPosition>> getStockPosition() {
-        return stockPosition;
-    }
-
-    public void setStockPosition(LinkedHashMap<String, ArrayList<StockPosition>> stockPosition) {
-        this.stockPosition = stockPosition;
-    }
-
-    public HashMap<String, StockSummary> getStockSummary() {
-        return stockSummary;
-    }
-
-
+    // 基础信息类
     public Double getCash() {
         return cash;
     }
-
 
     public Double getOriCash() {
         return oriCash;
     }
 
-    public Double getProfit() {
-        return profit;
-    }
+    public Double getProfit() {return profit;}
 
     public Double getProfitSettle() {
         return profitSettle;
@@ -349,105 +317,12 @@ public class BackTestConfig {
         return posDict;
     }
 
-    public Collection<Object> getStockOrderRecord() {
-        return stockOrderRecord;
-    }
-
-    public void setStockOrderRecord(Collection<Object> stockOrderRecord) {
-        this.stockOrderRecord = stockOrderRecord;
-    }
-
-    public String getFutureKDataBase() {
-        return futureKDataBase;
-    }
-
-    public void setFutureKDataBase(String futureKDataBase) {
-        this.futureKDataBase = futureKDataBase;
-    }
-
-    public Collection<LocalDate> getFutureDateList() {
-        return futureDateList;
-    }
-
-    public void setFutureDateList(Collection<LocalDate> futureDateList) {
-        this.futureDateList = futureDateList;
-    }
-
-    public Collection<LocalTime> getFutureTimeList() {
-        return futureTimeList;
-    }
-
-    public void setFutureTimeList(Collection<LocalTime> futureTimeList) {
-        this.futureTimeList = futureTimeList;
-    }
-
-    public TreeMap<LocalTime, HashMap<String, FutureBar>> getFutureKDict() {
-        return futureKDict;
-    }
-
-    public void setFutureKDict(TreeMap<LocalTime, HashMap<String, FutureBar>> futureKDict) {
-        this.futureKDict = futureKDict;
-    }
-
-    public HashMap<String, FutureInfo> getFutureInfoDict() {
-        return futureInfoDict;
-    }
-
-    public Collection<String> getFutureDotDateList() {
-        return futureDotDateList;
-    }
-
-    public Collection<StockRecord> getStockRecord() {
-        return stockRecord;
-    }
-
-    public LinkedHashMap<Integer, FutureOrder> getFutureCounter() {
-        return futureCounter;
-    }
-
-    public Collection<FutureRecord> getFutureRecord() {
-        return futureRecord;
-    }
-
-    public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureLongPosition() {
-        return futureLongPosition;
-    }
-
-    public void setFutureLongPosition(LinkedHashMap<String, ArrayList<FuturePosition>> futureLongPosition) {
-        this.futureLongPosition = futureLongPosition;
-    }
-
-    public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureShortPosition() {
-        return futureShortPosition;
-    }
-
-    public void setFutureShortPosition(LinkedHashMap<String, ArrayList<FuturePosition>> futureShortPosition) {
-        this.futureShortPosition = futureShortPosition;
-    }
-
-    public HashMap<String, FutureSummary> getFutureLongSummary() {
-        return futureLongSummary;
-    }
-
-
-    public HashMap<String, FutureSummary> getFutureShortSummary() {
-        return futureShortSummary;
-    }
-
-    public Collection<Object> getFutureOrderRecord() {
-        return futureOrderRecord;
-    }
-
     public Double getStockCash() {
         return stockCash;
     }
 
     public Double getOriStockCash() {
         return oriStockCash;
-    }
-
-    public void setOriStockCash(Double oriStockCash) {
-        this.oriStockCash = oriStockCash;
     }
 
     public Double getOriFutureCash() {
@@ -482,15 +357,98 @@ public class BackTestConfig {
         return futureRealTimeProfit;
     }
 
-    public void setFutureRealTimeProfit(Double futureRealTimeProfit) {
-        this.futureRealTimeProfit = futureRealTimeProfit;
+    public Double getOptionProfit() { return optionProfit;}
+
+    public Double getOptionRealTimeProfit() { return optionRealTimeProfit;}
+
+    // 股票类
+    public TreeMap<LocalTime, HashMap<String, StockBar>> getStockKDict() {
+        return stockKDict;
     }
 
-    public Double getOptionProfit() {
-        return optionProfit;
+    public void setStockKDict(TreeMap<LocalTime, HashMap<String, StockBar>> stockKDict) {
+        this.stockKDict = stockKDict;
     }
 
-    public Double getOptionRealTimeProfit() {
-        return optionRealTimeProfit;
+    public HashMap<String, StockInfo> getStockInfoDict(){ return stockInfoDict;}
+
+    public void setStockInfoDict(HashMap<String, StockInfo> stockInfoDict) {
+        // this.stockInfoDict.putAll(stockInfoDict);  // 更新stockInfoDict
+        this.stockInfoDict = stockInfoDict;
     }
+
+    public LinkedHashMap<Integer, StockOrder> getStockCounter() {
+        return stockCounter;
+    }
+    // TODO: 评估这里是HashMap 还是应该是 LinkedHashMap, 因为order_id已经是同步自增的序号了，按理说LinkedHashMap会保持插入顺序, 问题是否需要排序呢
+
+    public void setStockCounter(LinkedHashMap<Integer, StockOrder> stockCounter) {
+        this.stockCounter = stockCounter;
+    }
+
+    public LinkedHashMap<String, ArrayList<StockPosition>> getStockPosition() {
+        return stockPosition;
+    }
+
+    public void setStockPosition(LinkedHashMap<String, ArrayList<StockPosition>> stockPosition) {
+        this.stockPosition = stockPosition;
+    }
+
+    public HashMap<String, StockSummary> getStockSummary() {
+        return stockSummary;
+    }
+
+    public Collection<StockRecord> getStockRecord() {
+        return stockRecord;
+    }
+
+    // 期货类
+    public TreeMap<LocalTime, HashMap<String, FutureBar>> getFutureKDict() {
+        return futureKDict;
+    }
+
+    public void setFutureKDict(TreeMap<LocalTime, HashMap<String, FutureBar>> futureKDict) {
+        this.futureKDict = futureKDict;
+    }
+
+    public HashMap<String, FutureInfo> getFutureInfoDict() {
+        return futureInfoDict;
+    }
+
+    public void setFutureInfoDict(HashMap<String, FutureInfo> futureInfoDict) {
+        this.futureInfoDict = futureInfoDict;
+    }
+
+    public LinkedHashMap<Integer, FutureOrder> getFutureCounter() {
+        return futureCounter;
+    }
+
+    public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureLongPosition() {
+        return futureLongPosition;
+    }
+
+    public void setFutureLongPosition(LinkedHashMap<String, ArrayList<FuturePosition>> futureLongPosition) {
+        this.futureLongPosition = futureLongPosition;
+    }
+
+    public LinkedHashMap<String, ArrayList<FuturePosition>> getFutureShortPosition() {
+        return futureShortPosition;
+    }
+
+    public void setFutureShortPosition(LinkedHashMap<String, ArrayList<FuturePosition>> futureShortPosition) {
+        this.futureShortPosition = futureShortPosition;
+    }
+
+    public HashMap<String, FutureSummary> getFutureLongSummary() {
+        return futureLongSummary;
+    }
+
+    public HashMap<String, FutureSummary> getFutureShortSummary() {
+        return futureShortSummary;
+    }
+
+    public Collection<FutureRecord> getFutureRecord() { return futureRecord;}
+
+    // 期权类
+    // TODO: 待开发setter & getter
 }

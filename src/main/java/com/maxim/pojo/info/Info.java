@@ -11,6 +11,9 @@ public class Info{
     public LocalDate start_date;
     public LocalDate end_date;
 
+    public Info() {
+    }
+
     public Info(LocalDate tradeDate, String symbol, Double open, Double high, Double low, Double close,
                 LocalDate start_date, LocalDate end_date) {
         this.tradeDate = tradeDate;

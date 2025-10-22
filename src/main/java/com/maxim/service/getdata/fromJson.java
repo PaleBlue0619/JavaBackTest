@@ -6,6 +6,7 @@ import com.alibaba.fastjson2.JSONObject;
 import java.io.File;
 import java.io.IOException;
 import java.lang.Void;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,73 +35,89 @@ public class fromJson {
     public <T> TreeMap<LocalDate, HashMap<String, T>> JsonToJavaBeansBySymbol(Collection<LocalDate> dateList,
                                                                               String filePath,
                                                                               Class<T> clazz){
-        TreeMap<LocalDate, HashMap<String, T>> resultMap = fromJsonCommon(dateList, filePath,
-                (Class<HashMap<String, T>>) (Class<?>) HashMap.class);
-        return resultMap;
-    }
-
-    public <T> TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> JsonToJavaBeansByTime(Collection<LocalDate> dateList,
-                                                                                                String filePath,
-                                                                                                Class<T> clazz){
-//        // 问题: 难以正确将String -> LocalTime
-//        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = fromJsonCommon(dateList, filePath,
-//                (Class<TreeMap<LocalTime, HashMap<String, T>>>) (Class<?>) TreeMap.class);
 
         // 先用String作为键读取
-        TreeMap<LocalDate, TreeMap<String, HashMap<String, T>>> tempResult =
-                fromJsonCommon(dateList, filePath, (Class<TreeMap<String, HashMap<String, T>>>) (Class<?>) TreeMap.class);
+        TreeMap<LocalDate, HashMap<String, JSONObject>> tempResult = fromJsonCommon(dateList, filePath,
+                (Class<HashMap<String, JSONObject>>) (Class<?>) HashMap.class);
 
-        // 手动转换String键为LocalTime键
-        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new TreeMap<>();
-        for (Map.Entry<LocalDate, TreeMap<String, HashMap<String, T>>> entry : tempResult.entrySet()) {
-            TreeMap<LocalTime, HashMap<String, T>> convertedMap = new TreeMap<>();
-            for (Map.Entry<String, HashMap<String, T>> innerEntry : entry.getValue().entrySet()) {
-                LocalTime timeKey = LocalTime.parse(innerEntry.getKey());
-                convertedMap.put(timeKey, innerEntry.getValue());
+        // 手动转换String键为LocalDate键，并将JSONObject转换为指定类型的对象
+        TreeMap<LocalDate, HashMap<String, T>> resultMap = new TreeMap<>();
+        for (Map.Entry<LocalDate, HashMap<String, JSONObject>> entry : tempResult.entrySet()){
+            LocalDate dateKey = LocalDate.parse(entry.getKey().toString());
+            HashMap<String, T> convertedMap = new HashMap<>();
+            for (Map.Entry<String, JSONObject> innerEntry : entry.getValue().entrySet()){
+                try{
+                    T instance = clazz.getDeclaredConstructor().newInstance();  // 反射构造新对象
+                    JSONObject jsonObject = innerEntry.getValue();
+
+                    // 自动映射字段（JSON字段名与类字段名一致）
+                    Field[] fields = clazz.getDeclaredFields();
+                    for (Field field : fields){
+                        field.setAccessible(true);
+                        String fieldName = field.getName();
+                        if (jsonObject.containsKey(fieldName)){
+                            Object value = jsonObject.get(fieldName);
+                            System.out.println("Field" + fieldName + ": " + value);
+                            field.set(instance, value);
+                        }
+                    }
+                    convertedMap.put(innerEntry.getKey(), instance);
+                }catch (Exception e) {
+                    throw new RuntimeException("Failed to create instance of " + clazz.getSimpleName(), e);
+                }
             }
-            resultMap.put(entry.getKey(), convertedMap);
+            resultMap.put(dateKey, convertedMap);
         }
         return resultMap;
     }
 
-    public <T> TreeMap<LocalDate, HashMap<String, T>> JsonToJavaBeanBySymbol(Collection<LocalDate> dateList,
-                                                                             String filePath,
-                                                                             Class<T> clazz){
-        TreeMap<LocalDate, HashMap<String, T>> resultMap = fromJsonCommon(dateList, filePath,
-                (Class<HashMap<String, T>>) (Class<?>) HashMap.class);
+    public <T> TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> JsonToJavaBeansByTime(
+            Collection<LocalDate> dateList,
+            String filePath,
+            Class<T> clazz) {
+
+        // 先用String作为键读取
+        TreeMap<LocalDate, TreeMap<String, HashMap<String, JSONObject>>> tempResult =
+                fromJsonCommon(dateList, filePath,
+                        (Class<TreeMap<String, HashMap<String, JSONObject>>>) (Class<?>) TreeMap.class);
+
+        // 手动转换String键为LocalTime键，并将JSONObject转换为指定类型的对象
+        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new TreeMap<>();
+        for (Map.Entry<LocalDate, TreeMap<String, HashMap<String, JSONObject>>> entry : tempResult.entrySet()) {
+            LocalDate dateKey = LocalDate.parse(entry.getKey().toString());
+            TreeMap<LocalTime, HashMap<String, T>> convertedMap = new TreeMap<>();
+            for (Map.Entry<String, HashMap<String, JSONObject>> innerEntry : entry.getValue().entrySet()) {
+                LocalTime timeKey = LocalTime.parse(innerEntry.getKey());
+
+                // 将JSONObject转换为指定类型的对象
+                HashMap<String, T> convertedInnerMap = new HashMap<>();
+                for (Map.Entry<String, JSONObject> itemEntry : innerEntry.getValue().entrySet()) {
+                    try {
+                        T instance = clazz.getDeclaredConstructor().newInstance();
+                        JSONObject jsonObject = itemEntry.getValue();
+
+                        // 自动映射字段（JSON字段名与类字段名一致）
+                        Field[] fields = clazz.getDeclaredFields();
+                        for (Field field : fields) {
+                            field.setAccessible(true);
+                            String fieldName = field.getName();
+                            if (jsonObject.containsKey(fieldName)) {
+                                Object value = jsonObject.get(fieldName);
+                                field.set(instance, value);
+                            }
+                        }
+                        convertedInnerMap.put(itemEntry.getKey(), instance);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Failed to create instance of " + clazz.getSimpleName(), e);
+                    }
+                }
+
+                convertedMap.put(timeKey, convertedInnerMap);
+            }
+            resultMap.put(dateKey, convertedMap);
+        }
         return resultMap;
     }
-
-//    public <T> TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> JsonToJavaBeansByTime(
-//        Collection<LocalDate> dateList, String filePath, Class<T> clazz) {
-//        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, T>>> resultMap = new TreeMap<>();
-//
-//        Collection<CompletableFuture<Void>> futures = new ArrayList<>();
-//
-//        for (LocalDate date : dateList) {
-//            LocalDate finalDate = date;
-//            String fileName = date.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".json";
-//            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-//                try {
-//                    String strJson = new String(
-//                            Files.readAllBytes(Path.of(filePath + File.separator + Paths.get(fileName))));
-//
-//                    // 使用 TypeReference 来正确处理包含 LocalTime 键的 TreeMap
-//                    TreeMap<LocalTime, HashMap<String, T>> innerMap = JSON.parseObject(strJson,
-//                        new com.alibaba.fastjson2.TypeReference<TreeMap<LocalTime, HashMap<String, T>>>() {});
-//
-//                    resultMap.put(finalDate, innerMap);
-//                } catch (IOException e) {
-//                    throw new RuntimeException(e);
-//                }
-//            });
-//            futures.add(future);
-//        }
-//
-//        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-//        return resultMap;
-//    }
-
 
     public <T> TreeMap<LocalDate, T> fromJsonCommon(Collection<LocalDate> dateList,
                                                 String filePath,

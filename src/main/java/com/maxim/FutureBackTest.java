@@ -29,6 +29,7 @@ public class FutureBackTest {
     public static void main(String[] args) throws Exception{
         // 读取JSON文件内容
         String barPath = "D:\\BackTest\\JavaBackTest\\data\\stock_cn\\kbar";
+        String infoPath = "D:\\BackTest\\JavaBackTest\\data\\stock_cn\\info";
         String configPath = "D:\\BackTest\\JavaBackTest\\src\\main\\java\\com\\maxim\\backtest_config.json";
         String jsonContent = new String(Files.readAllBytes(Paths.get(configPath)));
         // Java单例设计模式, 获取全局配置项, 回测逻辑会实时修改里面的属性
@@ -42,21 +43,20 @@ public class FutureBackTest {
                 LocalDate.of(2020,1,3),
                 LocalDate.of(2020,1,6)
                 );
-        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> tempBarMap =
+        // 一次性读取所有数据至内存
+        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> barMap =
                 fj.JsonToJavaBeansByTime(dateList, barPath, StockBar.class);
-
-        // 使用 FastJSON2 重新构造对象
-        TreeMap<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> barMap = new TreeMap<>();
-        for (Map.Entry<LocalDate, TreeMap<LocalTime, HashMap<String, StockBar>>> dateEntry : tempBarMap.entrySet()) {
-            String jsonStr = JSON.toJSONString(dateEntry.getValue());
-            TreeMap<LocalTime, HashMap<String, StockBar>> parsedMap = JSON.parseObject(jsonStr,
-                    new TypeReference<TreeMap<LocalTime, HashMap<String, StockBar>>>() {});
-            barMap.put(dateEntry.getKey(), parsedMap);
-        }
+        TreeMap<LocalDate, HashMap<String, StockInfo>> infoMap =
+                fj.JsonToJavaBeansBySymbol(dateList, infoPath, StockInfo.class);
+        System.out.println(infoMap.containsKey(LocalDate.of(2020,1,2)));
+        infoMap.get(LocalDate.of(2020,1,2)).forEach(
+                (symbol, info) -> System.out.println(symbol+" "+info.symbol+" "+"close: "+info.close)
+        );
 
         for (LocalDate tradeDate : dateList){ // for - loop
             config.setCurrentDate(tradeDate); // 固定配置项
             config.setStockKDict(barMap.get(tradeDate));
+            config.setStockInfoDict(infoMap.get(tradeDate));
 
             for (LocalTime tradeTime: Utils.getMinuteList("SSE")){
                 config.setCurrentMinute(tradeTime); // 固定配置项

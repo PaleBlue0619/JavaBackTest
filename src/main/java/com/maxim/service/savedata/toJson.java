@@ -20,6 +20,8 @@ public class toJson{
      * BasicTable Obj -> JavaBean -> 解析后的JavaBean对象存储至Json
      * 目标Json文件路径: JsonPath + File.separator + dateStr + ".json"
      */
+    private static volatile boolean hasDeletedOnce = false;
+    private static final Object deleteLock = new Object();
 
     public void createFilePath(String filePath){
         try{
@@ -66,45 +68,17 @@ public class toJson{
         toJsonCommon(dataMap, filePath, dropFilePath);
     }
 
-//    // 提取的公共逻辑多线程并发写入
-//    public <T> void toJsonCommon(ConcurrentHashMap<LocalDate, T> dataMap,
-//                                 String filePath, boolean dropFilePath){
-//        // 是否删除目标文件路径
-//        if (dropFilePath){
-//            deleteFilePath(filePath);
-//        }
-//
-//        // 首先创建目标文件路径
-//        createFilePath(filePath);
-//
-//        // 之后多线程并发写入
-//        CompletableFuture<?>[] futures = dataMap.entrySet().stream()
-//            .map(entry -> CompletableFuture.runAsync(() -> {
-//                LocalDate date = entry.getKey(); // 获取当前日期
-//                String fileName = filePath + date.format(DateTimeFormatter.ofPattern("yyyyMMdd")) + ".json"; // 构造文件名称
-//                // 添加类型信息以便后续识别LocalTime等特殊类型
-//                String json = JSON.toJSONString(entry.getValue(),
-//                    JSONWriter.Feature.WriteClassName);
-//                try (FileWriter fileWriter = new FileWriter(fileName)){
-//                    fileWriter.write(json);  // 写入数据至缓冲区
-//                    fileWriter.flush();      // 刷新缓冲区, 将数据写入文件
-//                } catch (Exception e) {
-//                    throw new RuntimeException(e);
-//                }
-//            })).toArray(CompletableFuture[]::new);
-//
-//        // 等待所有任务完成
-//        CompletableFuture.allOf(futures).join();
-//    }
-
-
-
     // 提取的公共逻辑多线程并发写入
     public <T> void toJsonCommon(ConcurrentHashMap<LocalDate, T> dataMap,
                                  String filePath, boolean dropFilePath){
-        // 是否删除目标文件路径
-        if (dropFilePath){
-            deleteFilePath(filePath);
+        // 只在第一次执行时删除目标文件路径
+        if (dropFilePath && !hasDeletedOnce){
+            synchronized (deleteLock) {
+                if (!hasDeletedOnce) {
+                    deleteFilePath(filePath);
+                    hasDeletedOnce = true;
+                }
+            }
         }
 
         // 首先创建目标文件路径

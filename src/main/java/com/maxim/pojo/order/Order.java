@@ -14,6 +14,9 @@ public class Order{
     public LocalDateTime max_order_timestamp;
     public String reason;
 
+    public Order() {
+    }
+
     public Order(String symbol, Integer vol, Double price, LocalDate create_date, LocalDateTime create_timestamp, LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason) {
         this.symbol = symbol;
         this.vol = vol;

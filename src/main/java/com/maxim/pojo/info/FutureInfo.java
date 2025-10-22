@@ -7,6 +7,8 @@ public class FutureInfo extends Info{
     public Double settle; // 结算价
     public Double margin_rate; // 保证金率
 
+    public FutureInfo(){}
+
     public FutureInfo(LocalDate tradeDate, String symbol, Double open, Double high, Double low, Double close,
                       Double pre_settle, Double settle, Double margin_rate,  // 新增字段
                      LocalDate start_date, LocalDate end_date){

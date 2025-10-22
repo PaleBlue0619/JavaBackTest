@@ -12,6 +12,9 @@ public class FutureOrder extends Order{
     public Double dynamic_loss;
     public boolean partialOrder; // 当前订单是否为子单
 
+    public FutureOrder() {
+    }
+
     public FutureOrder(OrderDirection order_direction, String symbol, Integer vol, Double price, LocalDate create_date, LocalDateTime create_timestamp,
                       LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp, String reason){
         super(symbol, vol, price, create_date, create_timestamp, min_order_timestamp, max_order_timestamp, reason);

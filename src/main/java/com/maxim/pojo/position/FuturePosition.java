@@ -23,6 +23,10 @@ public class FuturePosition extends Position{
     public Double history_max;
     public Double history_min;
 
+    public FuturePosition(){
+
+    }
+
     public FuturePosition(Double price, Integer vol, Double margin_rate, LocalDateTime min_timestamp, LocalDateTime max_timestamp,
                           Double static_profit, Double static_loss,
                           Double dynamic_profit, Double dynamic_loss) {

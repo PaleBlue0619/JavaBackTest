@@ -16,6 +16,10 @@ public class StockOpenOrder extends StockOrder {
     public Double dynamic_loss;
     public Double commission;
 
+    public StockOpenOrder(){
+
+    }
+
     public StockOpenOrder(String symbol, Integer vol, Double price,
                           LocalDate create_date, LocalDateTime create_timestamp, LocalDateTime min_timestamp, LocalDateTime max_timestamp,
                           LocalDateTime min_order_timestamp, LocalDateTime max_order_timestamp,

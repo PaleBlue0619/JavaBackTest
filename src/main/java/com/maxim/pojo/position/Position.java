@@ -7,6 +7,9 @@ public class Position {
     public LocalDateTime min_timestamp;
     public LocalDateTime max_timestamp;
 
+    public Position() {
+    }
+
     public Position(Double price, Integer vol, LocalDateTime min_timestamp, LocalDateTime max_timestamp) {
         this.price = price;
         this.vol = vol;
