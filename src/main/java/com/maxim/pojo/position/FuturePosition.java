@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class FuturePosition extends Position{
-    public Double profit; // 持仓利润
+    public Double profit; // 实时利润
     public Double margin; // 保证金金额
     public Double margin_rate; // 保证金比率
     public Integer hold_days; // 用于平仓时计算收益
@@ -55,7 +55,8 @@ public class FuturePosition extends Position{
             return 0.0; // 保证金率没有发生变化, 无需增加/减少保证金
         }
         // 需要增加或减少的保证金
-        Double marginDiff = (margin_rate - this.margin_rate) * this.vol * this.pre_price;
+        double marginDiff = (margin_rate - this.margin_rate) * this.vol * this.pre_price;
+        this.margin -= marginDiff;
         this.margin_rate = margin_rate; // 更新保证金率水平
         return marginDiff;
     }
@@ -116,7 +117,7 @@ public class FuturePosition extends Position{
         this.dynamic_monitor = 0;
 
         // 更新当前仓位的利润
-        double realTimeProfit = (this.pre_price - settle) * this.vol * -1;
+        double realTimeProfit = (settle - this.pre_price) * this.vol * -1;
         this.profit += realTimeProfit;
         this.margin += realTimeProfit;
 
@@ -149,7 +150,6 @@ public class FuturePosition extends Position{
         if (this.time_monitor == -1){  // 今天某个时刻会超过最短持仓时间
             if (currentTime.isAfter(this.min_timestamp)){
                 this.time_monitor = 1;
-                return;
             }
         }
     }

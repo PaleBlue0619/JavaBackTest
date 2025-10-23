@@ -68,7 +68,7 @@ public class CounterBehavior extends TradeBehavior {
         config.futureCash -= cashDiff;
         config.cash -= cashDiff;
     }
-    
+
     public static void afterBarStock(){
         /*
          * 1. 变全局:更新全局属性(仓位的动态盈亏(由于所有Position在创建的时候pre_price == price, 所以第一个K线的动态盈亏始终为0.0))

@@ -13,7 +13,8 @@ public class Summary{
 
     }
 
-    public Summary(Double ori_price, Integer total_vol, Double static_profit, Double static_loss, Double dynamic_profit,
+    public Summary(Double ori_price, Integer total_vol, Double static_profit,
+                   Double static_loss, Double dynamic_profit,
                    Double dynamic_loss) {
         this.static_profit = static_profit;
         this.ori_price = ori_price; // 初始价格 -> 后续会变成持仓买入均价

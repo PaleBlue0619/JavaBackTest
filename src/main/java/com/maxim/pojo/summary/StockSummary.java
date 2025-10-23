@@ -21,10 +21,13 @@ public class StockSummary extends Summary{
         this.static_monitor = 0;
         this.profit = 0.0;  // 第一个Bar持仓的时候一定还没有利润产生
         this.realTimeProfit = 0.0;
+        this.realTimePrice = ori_price;
     }
 
     // 开仓时回调函数
-    public void openUpdate(Double price, Integer vol, Double static_profit, Double static_loss, Double dynamic_profit, Double dynamic_loss){
+    public void openUpdate(Double price, Integer vol,
+                           Double static_profit, Double static_loss,
+                           Double dynamic_profit, Double dynamic_loss){
         /*
         更新基本属性
         以price买入vol后, summary的变动
@@ -41,7 +44,7 @@ public class StockSummary extends Summary{
         Integer vol1 = vol0 + vol;
         Double amount1 = amount0 + price * vol;
 
-        // 赋值回sum
+        // 赋值回summary
         this.total_vol = vol1;
         this.ori_price = amount1 / vol1;
     }
@@ -58,6 +61,7 @@ public class StockSummary extends Summary{
 
         // 计算盈亏
         this.profit += (price - this.ori_price) * vol;
+        this.realTimeProfit = (price - this.ori_price) * this.total_vol;
     }
 
     public void onBarUpdate(Double price){
