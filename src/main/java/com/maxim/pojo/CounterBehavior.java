@@ -36,6 +36,39 @@ public class CounterBehavior extends TradeBehavior {
         super();
     }
 
+    public static void beforeDayFuture(){
+        /* 更新保证金率至各个仓位-> 实行资金划拨
+         * 1. 保证金率增加 -> 划拨现有资金至仓位的保证金
+         * 2. 保证金率降低 -> 从仓位的保证金返还至现有资金
+         * */
+
+        // 获取BackTestConfig实例
+        BackTestConfig config = BackTestConfig.getInstance();
+
+        // 获取当前品种信息
+        HashMap<String, FutureInfo> futureInfo = config.getFutureInfoDict();
+
+        Double cashDiff = 0.0; // 需要从现金账户中扣掉的资金金额（负数表示从仓位的保证金属性里面还回来）
+
+        // 获取当前多头仓位
+        LinkedHashMap<String, ArrayList<FuturePosition>> longPos = config.getFutureLongPosition();
+        for (String symbol: longPos.keySet()){
+            for (FuturePosition position: longPos.get(symbol)){
+                cashDiff += position.marginRateUpdate(futureInfo.get(symbol).margin_rate);  // 更新保证金率
+            }
+        }
+        LinkedHashMap<String, ArrayList<FuturePosition>> shortPos = config.getFutureShortPosition();
+        for (String symbol: shortPos.keySet()){
+            for (FuturePosition position: shortPos.get(symbol)){
+                cashDiff += position.marginRateUpdate(futureInfo.get(symbol).margin_rate);  // 更新保证金率
+            }
+        }
+
+        // 更新当前资金
+        config.futureCash -= cashDiff;
+        config.cash -= cashDiff;
+    }
+    
     public static void afterBarStock(){
         /*
          * 1. 变全局:更新全局属性(仓位的动态盈亏(由于所有Position在创建的时候pre_price == price, 所以第一个K线的动态盈亏始终为0.0))

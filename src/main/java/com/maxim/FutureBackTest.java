@@ -49,9 +49,6 @@ public class FutureBackTest {
         TreeMap<LocalDate, HashMap<String, StockInfo>> infoMap =
                 fj.JsonToJavaBeansBySymbol(dateList, infoPath, StockInfo.class);
         System.out.println(infoMap.containsKey(LocalDate.of(2020,1,2)));
-        infoMap.get(LocalDate.of(2020,1,2)).forEach(
-                (symbol, info) -> System.out.println(symbol+" "+info.symbol+" "+"close: "+info.close)
-        );
 
         for (LocalDate tradeDate : dateList){ // for - loop
             config.setCurrentDate(tradeDate); // 固定配置项

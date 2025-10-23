@@ -48,6 +48,18 @@ public class FuturePosition extends Position{
         this.history_min = price;
     }
 
+    // 盘前触发
+    public Double marginRateUpdate(Double margin_rate){
+        // 输入今日的对应保证金率, 更新当前保证金水平, 返回需要在现金账户中增加/减少的保证金
+        if (Math.abs(this.margin_rate - margin_rate) < 1e-6){
+            return 0.0; // 保证金率没有发生变化, 无需增加/减少保证金
+        }
+        // 需要增加或减少的保证金
+        Double marginDiff = (margin_rate - this.margin_rate) * this.vol * this.pre_price;
+        this.margin_rate = margin_rate; // 更新保证金率水平
+        return marginDiff;
+    }
+
     // K线到来时触发
     public Double onBarLongUpdate(Double price){
         // 更新历史最高价&最低价
