@@ -101,7 +101,7 @@ public class CounterBehavior extends TradeBehavior {
 
             if (stock_k_dict.containsKey(symbol)){
                 double close = stock_k_dict.get(symbol).close;  // 当前收盘价
-                // 1.更新视图
+                // 1.更新持仓视图
                 config.getStockSummary().get(symbol).onBarUpdate(close);
 
                 // 2.更新仓位
@@ -237,6 +237,7 @@ public class CounterBehavior extends TradeBehavior {
 
         // 多头仓位
         Double realTimeProfit = 0.0;
+        Double settleProfit = 0.0;
         for (String symbol: config.getFutureLongPosition().keySet()){
             int k = config.getFutureLongPosition().get(symbol).size();
             // 获取这个标的的settle
@@ -248,8 +249,10 @@ public class CounterBehavior extends TradeBehavior {
                 // 更新持仓属性
                 for (int i=1; i<k; i++){
                     realTimeProfit = config.getFutureLongPosition().get(symbol).get(i).afterDayLongUpdate(settle);
+                    settleProfit = config.getFutureLongPosition().get(symbol).get(i).afterDayLongSettle(settle);
                     config.realTimeProfit += realTimeProfit;
                     config.futureRealTimeProfit += realTimeProfit;
+                    config.profitSettle += settleProfit;
                 }
             }
         }
@@ -265,8 +268,10 @@ public class CounterBehavior extends TradeBehavior {
                 // 更新持仓属性
                 for (int i=1; i<k; i++){
                     realTimeProfit = config.getFutureShortPosition().get(symbol).get(i).afterDayShortUpdate(settle);
+                    settleProfit = config.getFutureShortPosition().get(symbol).get(i).afterDayShortSettle(settle);
                     config.realTimeProfit += realTimeProfit;
                     config.futureRealTimeProfit += realTimeProfit;
+                    config.profitSettle += settleProfit;
                 }
             }
         }
@@ -284,7 +289,7 @@ public class CounterBehavior extends TradeBehavior {
         // 获取BackTestConfig实例
         BackTestConfig config = BackTestConfig.getInstance();
 
-        // 初始化Summary视图对象
+        // 初始化Position对象
         StockPosition pos = new StockPosition(price, vol, min_timestamp, max_timestamp, static_profit, static_loss, dynamic_profit, dynamic_loss);
         if (!config.getStockPosition().containsKey(symbol)){
             // 说明当前没有该股票的持仓
@@ -295,6 +300,7 @@ public class CounterBehavior extends TradeBehavior {
             config.stockPosition.get(symbol).add(pos); // 新增该股票的持仓
         }
 
+        // 初始化Summary对象
         if (!config.getStockSummary().containsKey(symbol)){
             StockSummary summary = new StockSummary(price, vol, static_profit, static_loss, dynamic_profit, dynamic_loss);
             config.stockSummary.put(symbol, summary);
@@ -333,7 +339,7 @@ public class CounterBehavior extends TradeBehavior {
 
         // 创建持仓对象
         // TODO: 在FutureInfo中添加一个Integer类型的属性, 用于表明保证金计算方式, 这里获取该属性从而去使用对应方式计算初始保证金
-        FuturePosition pos = new FuturePosition(price, vol, margin_rate, min_timestamp, max_timestamp, static_profit, static_loss, dynamic_profit, dynamic_loss);
+        FuturePosition pos = new FuturePosition(price, vol, pre_settle, margin_rate, min_timestamp, max_timestamp, static_profit, static_loss, dynamic_profit, dynamic_loss);
 
         if (direction.equals(OrderDirection.LONG)){
             // 设置该多头仓位的static_high & static_low, 后续monitor中不再更新
@@ -383,6 +389,7 @@ public class CounterBehavior extends TradeBehavior {
 
     public static void closeStock(String symbol, Double price, Integer vol, String reason) {
         double profit = 0.0; // 该笔交易获得的盈利
+        double profitDiff = 0.0;  // 该笔交易相对上一个K线的额外收益
         double margin = 0.0; // 该笔交易获得的保证金
         BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig示例
 
@@ -400,10 +407,12 @@ public class CounterBehavior extends TradeBehavior {
         pos_list = config.stockPosition.get(symbol);
         ArrayList<Integer> current_vol_list = new ArrayList<>();
         ArrayList<Double> ori_price_list = new ArrayList<>();
+        ArrayList<Double> pre_price_list = new ArrayList<>();
         ArrayList<Integer> time_monitor_list = new ArrayList<>();
         for (StockPosition pos : pos_list) {
             current_vol_list.add(pos.vol);
-            ori_price_list.add(pos.price);
+            ori_price_list.add(pos.ori_price);
+            pre_price_list.add(pos.pre_price);
             time_monitor_list.add(pos.time_monitor);
         }
 
@@ -436,8 +445,10 @@ public class CounterBehavior extends TradeBehavior {
             for (int i = 0; i < current_vol_list.size(); i++) {
                 int position_vol = current_vol_list.get(i);
                 double ori_price = ori_price_list.get(i);
+                double pre_price = pre_price_list.get(i);
                 margin += price * position_vol;
                 profit += (price - ori_price) * position_vol;  // 逐笔盈亏
+                profitDiff += (price - pre_price) * position_vol;  // 实时增量盈亏
             }
             // 再对持仓&视图进行处理
             config.stockSummary.remove(symbol); // 直接删除该标的的视图
@@ -450,15 +461,18 @@ public class CounterBehavior extends TradeBehavior {
             // 再对持仓进行处理
             for (int i = 0; i < current_vol_list.size(); i++) {
                 int posVol = current_vol_list.get(i);
-                double posPrice = ori_price_list.get(i);
+                double ori_price = ori_price_list.get(i);
+                double pre_price = pre_price_list.get(i);
                 if (max_vol >= posVol) { // 当前订单全部平仓
                     margin += price * posVol;
-                    profit += (price - posPrice) * posVol;
+                    profit += (price - ori_price) * posVol;
+                    profitDiff += (price - pre_price) * posVol;
                     pos_list.remove(0); // FIFO Queue
                     max_vol -= posVol;
                 } else { // 当前订单部分平仓
                     margin += price * max_vol;
-                    profit += (price - posPrice) * max_vol;
+                    profit += (price - ori_price) * max_vol;
+                    profitDiff += (price - pre_price) * max_vol;
                     pos_list.get(0).vol = posVol - max_vol; // FIFO Queue
                     break;
                 }
@@ -471,10 +485,12 @@ public class CounterBehavior extends TradeBehavior {
         config.stockRecord.add(R);
 
         // 结算
+        config.cash += (margin + profitDiff);  // 股票交易中一开始付出的现金可以理解为100%保证金
+        config.stockCash += (margin + profitDiff);
         config.profit += profit;
         config.stockProfit += profit;
-        config.cash += margin;  // 股票交易中一开始付出的现金可以理解为100%保证金
-        config.stockCash += margin;
+        config.realTimeProfit += profitDiff;
+        config.stockRealTimeProfit += profitDiff;
     }
 
     public static void closeFuture(OrderDirection direction, String symbol, Integer vol, Double price, String reason){
@@ -512,13 +528,17 @@ public class CounterBehavior extends TradeBehavior {
         // 获取当前期货持仓的具体细节
         ArrayList<Integer> current_vol_list = new ArrayList<>();  // 每个仓位对应的持仓数量
         ArrayList<Double> ori_price_list = new ArrayList<>();    // 每个仓位对应的持仓价格
+        ArrayList<Double> pre_price_list = new ArrayList<>();   // 每个仓位对应的上个价格
         ArrayList<Double> pre_margin_list = new ArrayList<>();   // 每个仓位对应的保证金
+        ArrayList<Double> pre_settle_list = new ArrayList<>();   // 每个仓位对应的昨结算价
         ArrayList<Integer> time_monitor_list = new ArrayList<>(); // 每个仓位对应的持仓时间
         ArrayList<Integer> hold_days_list = new ArrayList<>();   // 每个仓位对应的期货持仓时间监控状态情况
         for (FuturePosition pos : pos_list) {
             current_vol_list.add(pos.vol);
             ori_price_list.add(pos.price);
+            pre_price_list.add(pos.pre_price);
             pre_margin_list.add(pos.margin);
+            pre_settle_list.add(pos.pre_settle);
             time_monitor_list.add(pos.time_monitor);
             hold_days_list.add(pos.hold_days);
         }
@@ -546,23 +566,27 @@ public class CounterBehavior extends TradeBehavior {
         // 获取当前可以平仓的最大数量
         int max_vol = Math.min(current_vol, vol); // 每次循环会改变max_vol的值，直到max_vol为=0
         int record_vol = max_vol;  // for record
-        double profit = 0.0, settle_profit = 0.0, margin = 0.0;  // 该笔交易获得盈利(平仓盈亏)  // 该笔交易获得的定时盈亏(平仓价-昨结价) // 该笔交易收回的保证金
+        double profit = 0.0, profitDiff = 0.0, settle_profit = 0.0, margin = 0.0;
+        // 该笔交易获得盈利(平仓盈亏) // 该笔交易相对上根K线的增量收益  // 该笔交易获得的定时盈亏(平仓价-昨结价) // 该笔交易收回的保证金
 
         if (max_vol >= current_vol && state){  // 说明都可以平仓
             // 逐笔计算盈亏
             for (int i = 0; i < current_vol_list.size(); i++) {
                 int position_vol = current_vol_list.get(i);
                 Double ori_price = ori_price_list.get(i);
+                Double pre_price = pre_price_list.get(i);
                 Double pre_margin = pre_margin_list.get(i);
-                Double pre_settle = pre_margin_list.get(i);
+                Double pre_settle = pre_settle_list.get(i);
                 int hold_days = hold_days_list.get(i);
                 profit += (price - ori_price) * position_vol * LS;  // 逐笔盈亏
                 if (hold_days == 0){  // TODO: 说明是日内平仓,没有持隔夜仓,需要添加对应的commission计算逻辑
                     settle_profit += (price - ori_price) * position_vol * LS;
+                    profitDiff += (price - pre_price) * position_vol * LS;
                 }else{ // TODO: 说明是隔日平仓,需要添加对应的commission计算逻辑
                     settle_profit += (price - pre_settle) * position_vol * LS;
+                    profitDiff += (price - pre_settle) * position_vol * LS;
                 }
-                margin += (pre_margin + settle_profit); // 收回的保证金
+                margin += pre_margin; // (pre_margin + settle_profit); // 收回的保证金
             }
             // 对持仓&视图进行处理
             if (direction.equals(OrderDirection.LONG)){
@@ -585,18 +609,21 @@ public class CounterBehavior extends TradeBehavior {
             for (int i = 0; i < current_vol_list.size(); i++) {
                 Integer position_vol = current_vol_list.get(i);
                 Double ori_price = ori_price_list.get(i);
+                Double pre_price = pre_price_list.get(i);
                 Double pre_margin = pre_margin_list.get(i);
-                Double pre_settle = pre_margin_list.get(i);
+                Double pre_settle = pre_settle_list.get(i);
                 int hold_days = hold_days_list.get(i);
 
                 if (max_vol>=position_vol){  // 当前订单全部平仓
                     profit += (price - ori_price) * position_vol * LS;
                     if (hold_days == 0){  // TODO: 说明是日内平仓,没有持隔夜仓,需要添加对应的commission计算逻辑
                         settle_profit += (price - ori_price) * position_vol * LS;
+                        profitDiff += (price - pre_price) * position_vol * LS;
                     }else{ // TODO: 说明是隔日平仓,需要添加对应的commission计算逻辑
                         settle_profit += (price - pre_settle) * position_vol * LS;
+                        profitDiff += (price - pre_settle) * position_vol * LS;
                     }
-                    margin += (pre_margin + settle_profit); // 该仓位收回的保证金 = 该仓位保证金 + 该仓位盯市盈亏
+                    margin += pre_margin; //(pre_margin + settle_profit); // 该仓位收回的保证金 = 该仓位保证金 + 该仓位盯市盈亏
                     pos_list.remove(0);  // FIFO Queue
                     max_vol -= position_vol;
                 }
@@ -604,10 +631,12 @@ public class CounterBehavior extends TradeBehavior {
                     profit += (price - ori_price) * max_vol * LS;
                     if (hold_days == 0){  // TODO: 说明是日内平仓,没有持隔夜仓,需要添加对应的commission计算逻辑
                         settle_profit += (price-ori_price) * max_vol * LS;
+                        profitDiff += (price - pre_price) * max_vol * LS;
                     }else{ // TODO: 说明是隔日平仓,需要添加对应的commission计算逻辑
                         settle_profit += (price - pre_settle) * max_vol * LS;
+                        profitDiff += (price - pre_settle) * max_vol * LS;
                     }
-                    margin += (pre_margin * (max_vol/vol) + settle_profit); // 该仓位收回的保证金 = 该仓位保证金 * (平仓数量/总持仓数量) + 该仓位盯市盈亏
+                    margin += pre_margin * (max_vol/vol); //(pre_margin * (max_vol/vol) + settle_profit); // 该仓位收回的保证金 = 该仓位保证金 * (平仓数量/总持仓数量) + 该仓位盯市盈亏
                     break;  // max_vol == 0 -> 该标的的全部仓位平仓完毕
                 }
             }
@@ -624,117 +653,14 @@ public class CounterBehavior extends TradeBehavior {
         config.futureRecord.add(R);
 
         // 结算
+        config.cash += (margin + profitDiff);                 // 保证金
+        config.futureCash += (margin + profitDiff);
         config.profit += profit;                // 逐笔盈亏(平仓价-开仓价)
         config.futureProfit += profit;
         config.profitSettle += settle_profit;  // 盯市盈亏(平仓价-昨结价)
-        // TODO: futureXXX
-        config.cash += margin;                 // 保证金(pre_margin+盯市盈亏)
-        config.futureCash += margin;
+        config.realTimeProfit += profitDiff;
+        config.futureRealTimeProfit += profitDiff;
     }
-
-//    public static void calculateFutureLongProfit_afterDay(){
-//        // 盘后运行
-//        // 1. 计算盯市盈亏
-//        // 2. 更新仓位属性(settle & hold_days)
-//
-//        int LS = 1;
-//        BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig示例
-//
-//        if (config.getFutureLongPosition().isEmpty()){
-//            return ; // 说明多头没有持仓, 不需要检测
-//        }
-//        HashMap<String, FutureInfo> totalInfo = config.getFutureInfoDict(); // 获取标的信息
-//        FutureInfo info;
-//        double settle_profit;  // 盯市盈亏
-//        double settle,pre_settle; // 昨结价,今结价
-//        for (String symbol: config.getFutureLongPosition().keySet()){
-//            if (!totalInfo.containsKey(symbol)){
-//                continue;
-//            }
-//            info = totalInfo.get(symbol);
-//            settle = info.settle;
-//            pre_settle = info.pre_settle;
-//            int k = config.getFutureLongPosition().get(symbol).size();
-//            for (int i=0; i<k; i++){
-//                FuturePosition pos = config.getFutureLongPosition().get(symbol).get(i);
-//                double vol = pos.getVol();
-//                int hold_days = pos.hold_days;
-//                if (hold_days >=1){  // 说明这个仓位不是第一天持仓
-//                    settle_profit = (settle - pre_settle) * vol * LS;  // 第K天的盯市盈亏
-//                }else{
-//                    settle_profit = (settle - pos.price) * vol * LS; // 第1天的盯市盈亏
-//                }
-//                config.profitSettle += settle_profit;
-//                // TODO: futureXXX
-//                pos.margin += settle_profit;
-//                pos.hold_days += 1;       // 更新持仓属性:持仓天数
-//                pos.pre_settle = settle;   // 更新持仓属性:昨结算价
-//                config.getFutureLongPosition().get(symbol).set(i, pos);
-//            }
-//        }
-//    }
-
-//    public static void calculateFutureShortProfit_afterDay(){
-//        /*
-//         * [收盘后运行]:
-//         * 1.利用仓位中的hold_days, 对于第1天持仓/第K天的标的分别计算收益->profitSettle
-//         * 2.更新未平仓合约的pre_settle为收盘后的settle, hold_days+=1
-//         * */
-//        int LS = -1;
-//        BackTestConfig config = BackTestConfig.getInstance(); // 获取BackTestConfig示例
-//
-//        if (config.getFutureShortPosition().isEmpty()){
-//            return ; // 说明空头没有持仓, 不需要检测
-//        }
-//        HashMap<String, FutureInfo> totalInfo = config.getFutureInfoDict(); // 获取标的信息
-//        FutureInfo info;
-//        double settle_profit;  // 盯市盈亏
-//        double settle,pre_settle; // 昨结价,今结价
-//        for (String symbol: config.getFutureShortPosition().keySet()){
-//            if (!totalInfo.containsKey(symbol)){
-//                continue;
-//            }
-//            info = totalInfo.get(symbol);
-//            settle = info.settle;
-//            pre_settle = info.pre_settle;
-//            int k = config.getFutureShortPosition().get(symbol).size();
-//            for (int i=0; i<k; i++){
-//                FuturePosition pos = config.getFutureShortPosition().get(symbol).get(i);
-//                double vol = pos.getVol();
-//                int hold_days = pos.hold_days;
-//                if (hold_days >=1){  // 说明这个仓位不是第一天持仓
-//                    settle_profit = (settle - pre_settle) * vol * LS;  // 第K天的盯市盈亏
-//                }else{
-//                    settle_profit = (settle - pos.price) * vol * LS; // 第1天的盯市盈亏
-//                }
-//                config.profitSettle += settle_profit;
-//                // TODO: futureXXX
-//                pos.margin += settle_profit;
-//                pos.hold_days += 1;       // 更新持仓属性:持仓天数
-//                pos.pre_settle = settle;   // 更新持仓属性:昨结算价
-//                config.getFutureShortPosition().get(symbol).set(i, pos);
-//            }
-//        }
-//    }
-
-//    public static void calculateFutureProfit_afterDay(){
-//        /*
-//        * [收盘后运行]:
-//        * 1.更新未平仓合约的pre_settle为收盘后的settle
-//        * 2.利用仓位中的hold_days, 对于第一天持仓的标的单独计算收益
-//        * */
-//        calculateFutureLongProfit_afterDay();  // 计算多头持仓
-//        calculateFutureShortProfit_afterDay(); // 计算空头持仓
-//    }
-
-//    public static void futureAfterDay(){
-//        /*
-//         * [收盘后运行]:
-//         * 1.利用仓位中的hold_days, 对于第1天持仓/第K天的标的分别计算收益->profitSettle
-//         * 2.更新未平仓合约的pre_settle为收盘后的settle, hold_days+=1
-//         * */
-//        calculateFutureProfit_afterDay();
-//    }
 
     public static void monitorStockPosition(boolean order_sequence){
         /*
@@ -890,10 +816,10 @@ public class CounterBehavior extends TradeBehavior {
                 close_permission = false;
             }
 
-            // 赋值回BackTestConfig
-            if (!positionList.isEmpty()){
-                config.stockPosition.put(symbol, positionList);
-            }
+//            // 赋值回BackTestConfig
+//            if (!positionList.isEmpty()){
+//                config.stockPosition.put(symbol, positionList);
+//            }
         }
     }
 
@@ -927,11 +853,11 @@ public class CounterBehavior extends TradeBehavior {
         for (String symbol: futurePos.keySet()){
             FutureInfo info_dict = future_info_dict.get(symbol);
             FutureBar kBar = future_k_dict.get(symbol); // 当前期货分钟Bar
-            if (direction.equals(OrderDirection.LONG)){
-                FutureSummary summary = config.getFutureLongSummary().get(symbol); // 当前期货持仓视图
-            }else{
-                FutureSummary summary = config.getFutureShortSummary().get(symbol);
-            }
+//            if (direction.equals(OrderDirection.LONG)){
+//                FutureSummary summary = config.getFutureLongSummary().get(symbol); // 当前期货持仓视图
+//            }else{
+//                FutureSummary summary = config.getFutureShortSummary().get(symbol);
+//            }
 
             // Step0. 获取基本信息并更新期货持仓视图
             LocalDate end_date = info_dict.end_date;
@@ -1015,20 +941,20 @@ public class CounterBehavior extends TradeBehavior {
                 if (static_monitor==1){  // 说明允许平仓
                     if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
                         if (static_high!=null && high_price >= static_high){
-                            CounterBehavior.closeStock(symbol, static_high, positionVol, "static_high");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price,  "static_high");
                             continue;
                         }
                         if (static_low!=null && low_price <= static_low){
-                            CounterBehavior.closeStock(symbol, static_low, positionVol, "static_low");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "static_low");
                             continue;
                         }
                     }else{  // 假设最低价先到来, 先判断最低价条件
                         if (static_low!=null && low_price <= static_low){
-                            CounterBehavior.closeStock(symbol, static_low, positionVol, "static_low");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "static_low");
                             continue;
                         }
                         if (static_high!=null && high_price >= static_high){
-                            CounterBehavior.closeStock(symbol, static_high, positionVol, "static_high");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "static_high");
                             continue;
                         }
                     }
@@ -1043,20 +969,20 @@ public class CounterBehavior extends TradeBehavior {
                 if (close_permission && dynamic_monitor == 1){ // 说明允许平仓
                     if (order_sequence){ // 假设最高价先到来, 先判断最高价条件
                         if (dynamic_high!=null && high_price >= dynamic_high){
-                            CounterBehavior.closeStock(symbol, dynamic_high, positionVol, "dynamic_high");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "dynamic_high");
                             continue;
                         }
                         if (dynamic_low!=null && low_price <= dynamic_low){
-                            CounterBehavior.closeStock(symbol, dynamic_low, positionVol, "dynamic_low");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "dynamic_low");
                             continue;
                         }
                     }else{ // 假设最低价先到来, 先判断最低价条件
                         if (dynamic_low!=null && low_price <= dynamic_low){
-                            CounterBehavior.closeStock(symbol, dynamic_low, positionVol, "dynamic_low");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "dynamic_low");
                             continue;
                         }
                         if (dynamic_high!=null && high_price >= dynamic_high){
-                            CounterBehavior.closeStock(symbol, dynamic_high, positionVol, "dynamic_high");
+                            CounterBehavior.closeFuture(direction, symbol, positionVol, close_price, "dynamic_high");
                             continue;
                         }
                     }
@@ -1071,14 +997,14 @@ public class CounterBehavior extends TradeBehavior {
                 close_permission = false;
             }
 
-            // 赋值回BackTestConfig
-            if (!positionList.isEmpty()){
-                if (direction.equals(OrderDirection.LONG)){
-                    config.futureLongPosition.put(symbol, positionList);
-                }else{
-                    config.futureShortPosition.put(symbol, positionList);
-                }
-            }
+//            // 赋值回BackTestConfig
+//            if (!positionList.isEmpty()){
+//                if (direction.equals(OrderDirection.LONG)){
+//                    config.futureLongPosition.put(symbol, positionList);
+//                }else{
+//                    config.futureShortPosition.put(symbol, positionList);
+//                }
+//            }
         }
     }
 }

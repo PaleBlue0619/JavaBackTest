@@ -7,7 +7,9 @@ public class FuturePosition extends Position{
     public Double profit; // 实时利润
     public Double margin; // 保证金金额
     public Double margin_rate; // 保证金比率
+    public Double pre_settle;
     public Integer hold_days; // 用于平仓时计算收益
+    public Double ori_price;   // 原始价格
     public Double pre_price;  // 上一个K线的价格
     public Integer time_monitor;
     public Integer static_monitor;
@@ -27,12 +29,14 @@ public class FuturePosition extends Position{
 
     }
 
-    public FuturePosition(Double price, Integer vol, Double margin_rate, LocalDateTime min_timestamp, LocalDateTime max_timestamp,
+    public FuturePosition(Double price, Integer vol, Double pre_settle, Double margin_rate, LocalDateTime min_timestamp, LocalDateTime max_timestamp,
                           Double static_profit, Double static_loss,
                           Double dynamic_profit, Double dynamic_loss) {
         super(price, vol, min_timestamp, max_timestamp);
+        this.ori_price = price;
         this.pre_price = price; // 创建的时候就是开仓价， 后续在afterBar的中会更新该属性
         this.profit = 0.0;  // 一开始买入的时候利润一定为0.0
+        this.pre_settle = pre_settle;
         this.margin_rate = margin_rate;
         this.margin = margin_rate * vol * price;  // TODO: 增加一个参数,使得能够根据这个参数选择对应的保证金计算方式
         this.hold_days = 0;
@@ -107,6 +111,32 @@ public class FuturePosition extends Position{
         // 更新当前仓位的pre_price为price
         this.pre_price = settle;
         return realTimeProfit;
+    }
+
+    public Double afterDayLongSettle(Double settle){
+        // 多头仓位给定当日结算价，进行盯市盈亏的计算
+        double settleProfit = (settle - this.pre_settle) * this.vol * 1;
+        this.pre_settle = settle;
+        if (this.hold_days == 0){ // 说明是第一天持仓
+            settleProfit = (settle - this.ori_price) * this.vol * 1;
+        }
+
+        // 更新hold_days
+        this.hold_days += 1;
+        return settleProfit;
+    }
+
+    public Double afterDayShortSettle(Double settle){
+        // 空头仓位给定当日结算价，进行盯市盈亏的计算
+        double settleProfit = (this.pre_settle - settle) * this.vol * -1;
+        this.pre_settle = settle;
+        if (this.hold_days == 0){ // 说明是第一天持仓
+            settleProfit = (this.ori_price - settle) * this.vol * -1;
+        }
+
+        // 更新hold_days
+        this.hold_days += 1;
+        return settleProfit;
     }
 
     public Double afterDayShortUpdate(Double settle){

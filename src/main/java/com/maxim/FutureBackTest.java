@@ -54,6 +54,7 @@ public class FutureBackTest {
             config.setCurrentDate(tradeDate); // 固定配置项
             config.setStockKDict(barMap.get(tradeDate));
             config.setStockInfoDict(infoMap.get(tradeDate));
+            Counter.beforeDayFuture();
 
             for (LocalTime tradeTime: Utils.getMinuteList("SSE")){
                 config.setCurrentMinute(tradeTime); // 固定配置项

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public class StockPosition extends Position {
     public Double profit; // 持仓利润
+    public Double ori_price;  // 原始价格
     public Double pre_price;  // 上一个K线的价格, 不会在创建K线的时候赋值, 而会在monitor的时候赋值
     public Integer time_monitor;
     public Integer static_monitor;  // 静态止盈止损, 当且仅当当前仓位在队列第一个元素会据此进行平仓
@@ -28,6 +29,7 @@ public class StockPosition extends Position {
                          Double static_profit, Double static_loss,
                          Double dynamic_profit, Double dynamic_loss) {
         super(price, vol, min_timestamp, max_timestamp);
+        this.ori_price = price;
         this.pre_price = price;
         this.profit = 0.0;  // 一开始买入的利润一定为0
         this.time_monitor = 0; // 初始化是否需要监控时间为0,表示还不知道,需要等到该仓位该天第一次被监控时进行判断
